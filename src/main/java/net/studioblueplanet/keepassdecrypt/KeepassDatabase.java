@@ -405,9 +405,6 @@ public class KeepassDatabase
                 if (blockHash[i]!=hash[i])
                 {
                     valid=false;
-                }
-                else
-                {
                     LOGGER.error("Block hash invalid!");
                 }
             }
