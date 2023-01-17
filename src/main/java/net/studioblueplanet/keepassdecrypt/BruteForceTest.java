@@ -40,9 +40,13 @@ public class BruteForceTest
     {
         boolean found=false;
         
-        for (int numberOfChars=0; numberOfChars<=maxChars && !found; numberOfChars++)
+        for (int numberOfChars=1; numberOfChars<=maxChars && !found; numberOfChars++)
         {
+            long start = System.currentTimeMillis();
             found=attack("", numberOfChars);
+            long end = System.currentTimeMillis();
+            long elapsedTime = (end - start);
+            LOGGER.info("Parsing all passwords of {} took {} milliseconds", elapsedTime);
         }
         return found;
     }
@@ -58,26 +62,23 @@ public class BruteForceTest
         boolean found;
         
         found=false;
-        for(int ch=0; ch<chars && !found; ch++)
+        for(int i=0;i<passwordChars.length() && !found;i++)
         {
-            for(int i=0;i<passwordChars.length() && !found;i++)
+            password=prefix+passwordChars.charAt(i);
+            if (chars==1)
             {
-                password=prefix+passwordChars.charAt(i);
-                if (chars==1)
+                LOGGER.info("Testing {}", password);
+                if (database.testPassword(password))
                 {
-                    LOGGER.info("Testing {}", password);
-                    if (database.testPassword(password))
-                    {
-                        LOGGER.info("Password found: {}", password);
-                        found=true;
-                    }
+                    LOGGER.info("Password found: {}", password);
+                    found=true;
                 }
-                else
-                {
-                    found=attack(password, chars-1);
-                }
-                
             }
+            else
+            {
+                found=attack(password, chars-1);
+            }
+
         }
         return found;
     }
