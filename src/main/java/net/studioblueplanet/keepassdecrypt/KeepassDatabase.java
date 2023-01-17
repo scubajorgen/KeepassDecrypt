@@ -5,8 +5,6 @@
  */
 package net.studioblueplanet.keepassdecrypt;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,7 +22,6 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.crypto.spec.IvParameterSpec;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
 
 /**
  * Keepass database decryption
@@ -129,6 +126,15 @@ public class KeepassDatabase
             valid=decryptDatabase();
         }
         return valid;
+    }
+    
+    /**
+     * After proper decryption, this method returns the database as XML string
+     * @return The XML string
+     */
+    public String getDatabaseAsXml()
+    {
+        return this.xmlDatabase;
     }
     
     /**
