@@ -30,6 +30,13 @@ import org.apache.logging.log4j.Logger;
 public class KeepassDatabase
 {
     private final static Logger LOGGER = LogManager.getLogger(KeepassDatabase.class);
+    
+    public enum PasswordCipher
+    {
+        NO,
+        ARC4,
+        SALSA20       
+    }
 
     // Header fields
     private byte[]              cipherUuid;
@@ -45,6 +52,7 @@ public class KeepassDatabase
     private int                 compressionFlags;
     private long                transformRounds;
     private int                 randomStreamId;
+    private PasswordCipher      passwordCipher;
     
     // Intermediate and final process result
     private byte[]              filedata;               // raw file bytes
@@ -135,6 +143,24 @@ public class KeepassDatabase
     public String getDatabaseAsXml()
     {
         return this.xmlDatabase;
+    }
+    
+    /**
+     * Returns the cipher used for inner password encryption
+     * @return The cipher
+     */
+    public PasswordCipher getPasswordEncryption()
+    {
+        return passwordCipher;
+    }
+    
+    /**
+     * Get the password encryption/decryption key
+     * @return Byte array
+     */
+    public byte[] getPasswordEncryptionKey()
+    {
+        return passwordEncryptionKey;
     }
     
     /**
@@ -246,6 +272,18 @@ public class KeepassDatabase
                 case 0x0a:
                     randomStreamId          =(int)readInt(filedata, index+3, length);
                     index+=length+3;
+                    if (randomStreamId==1)
+                    {
+                        passwordCipher=PasswordCipher.ARC4;
+                    }
+                    else  if (randomStreamId==2)
+                    {
+                        passwordCipher=PasswordCipher.SALSA20;
+                    }
+                    else 
+                    {
+                        passwordCipher=PasswordCipher.NO;
+                    }
                     break;
             }
         }

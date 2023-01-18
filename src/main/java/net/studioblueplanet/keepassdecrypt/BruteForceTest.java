@@ -46,7 +46,10 @@ public class BruteForceTest
             found=attack("", numberOfChars);
             long end = System.currentTimeMillis();
             long elapsedTime = (end - start);
-            LOGGER.info("Parsing all passwords of {} took {} milliseconds", elapsedTime);
+            if (!found)
+            {
+                LOGGER.info("Parsing all passwords of {} chars took {} milliseconds", numberOfChars, elapsedTime);
+            }
         }
         return found;
     }

@@ -79,9 +79,38 @@ public class KeepassDatabaseTest
         expResult = true;
         result = instance.testPassword("test");
         assertEquals(expResult, result);
-
     }
-
+    
+    /**
+     * Test of getPasswordEncryption method, of class KeepassDatabase.
+     */
+    @Test
+    public void testgGetPasswordEncryption()
+    {
+        System.out.println("testPassword");
+        String password = "";
+        KeepassDatabase instance = new KeepassDatabase("src/test/resources/test.kdbx");
+        KeepassDatabase.PasswordCipher expResult=KeepassDatabase.PasswordCipher.SALSA20;
+        KeepassDatabase.PasswordCipher result=instance.getPasswordEncryption();
+        assertEquals(expResult, result);
+    }
+  
+    /**
+     * Test of getPasswordEncryptionKey method, of class KeepassDatabase.
+     */
+    @Test
+    public void testgGetPasswordEncryptionKey()
+    {
+        System.out.println("testPassword");
+        String password = "";
+        KeepassDatabase instance = new KeepassDatabase("src/test/resources/test.kdbx");
+        byte[] expResult={(byte)0x6b, (byte)0x25, (byte)0xc9, (byte)0xd7, (byte)0x0e, (byte)0x5c, (byte)0x19, (byte)0xac, 
+                          (byte)0x51, (byte)0x74, (byte)0xd7, (byte)0x74, (byte)0x53, (byte)0xad, (byte)0x23, (byte)0x70, 
+                          (byte)0x15, (byte)0x27, (byte)0x56, (byte)0x2e, (byte)0x02, (byte)0xb8, (byte)0xec, (byte)0x5c, 
+                          (byte)0xac, (byte)0x89, (byte)0x2d, (byte)0xc3, (byte)0xe4, (byte)0xb5, (byte)0x1c, (byte)0x12};
+        byte[] result   =instance.getPasswordEncryptionKey();
+        assertArrayEquals(expResult, result);
+    }
 
     
 }

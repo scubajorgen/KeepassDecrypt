@@ -50,10 +50,18 @@ public class BruteForceTestTest
     public void testExecute()
     {
         System.out.println("execute");
-        int maxChars = 0;
+        int maxChars = 1;
+        
+        // password found
         BruteForceTest instance = new BruteForceTest("src/test/resources/test2.kdbx");
         boolean expResult = true;
         boolean result = instance.execute(1);
+        assertEquals(expResult, result);
+        
+        // password not found
+        instance = new BruteForceTest("src/test/resources/test.kdbx");
+        expResult = false;
+        result = instance.execute(2);
         assertEquals(expResult, result);
     }
     
