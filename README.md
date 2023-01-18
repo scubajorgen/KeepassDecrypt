@@ -10,12 +10,12 @@ Then it tries to brute force the test_3charspassword.kdbx database using a quick
 
 Out of scope:
 * .kdb files
-* Encryption of the password with the XML file entries
 
 
 ## Test databases
 Two Keepass testdatabases are enclosed:
-* test_5charspassword.kdbx, password 'test'
+* test_8charspassword.kdbx, password 'testtest'
+* test_4charspassword.kdbx, password 'test'
 * test_3charspassword.kdbx, password 'tst'
 
 Of course you can open them in Keepass.

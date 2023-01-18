@@ -49,7 +49,7 @@ public class CredentialDecoderTest
     @Test
     public void testCredentialDecoder()
     {
-        KeepassDatabase base            =new KeepassDatabase("test_8charspassword.kdbx");
+        KeepassDatabase base            =new KeepassDatabase("src/test/resources/test3.kdbx");
         String          xml             =base.decryptDatabase("testtest");
         PasswordCipher  cipher          =base.getPasswordEncryption();
         byte[]          key             =base.getPasswordEncryptionKey();
