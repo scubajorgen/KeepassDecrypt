@@ -90,6 +90,28 @@ A password within the XML is decrypted as follows
 1. Base64 decode the password from the XML
 1. Use Salsa20 or RC4 to decrypt, using the key and a fixed Initialisation Vector E830094B97205D2A
 
+## Header
+The Header in the .kdbx file contains the information that is needed together with the master password or key file to decrypt the database.
+
+![](image/header.png)
+
+The header consists of two signatures and a number of fields.
+* Signature 1: 0x9aa2d903
+* Signature 2: 0xb54bfb67
+
+Fields consist of an identification, a value length (big endian) and a value. Following fields are seen:
+* 0: end of header; value is 4 bytes 0x0d0a0d0a
+* 1: unclear; the entire field is 4 bytes, length does not make sense.
+* 2: Cipher UUID; 0x31c1f2e6bf714350be5805216afc5aff for AES
+* 3: Compression flags: 1 - GZIP compression
+* 4: Master seed
+* 5: Transform seed
+* 6: Transform rounds
+* 7: Encryption initialisation vector (IV)
+* 8: Password encryption key, used for 2nd round of password encryption
+* 9: Stream start bytes, first 32 (random) bytes of unencrypted content.
+* 10: Password cipher: 0 - none, 1 - RC4, 2 - Salsa20
+
 ## Results
 It first shows the header fields, defining the 
 ```
