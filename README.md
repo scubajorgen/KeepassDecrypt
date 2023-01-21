@@ -10,8 +10,10 @@ In the XML file the password fields are encrypted at a second level. The softwar
 
 Then it tries to brute force the test_3charspassword.kdbx database using a quick and dirty and certainly inefficient algorithm.
 
+This applies to version 3.1 of the .kdbx format. 
 Out of scope:
 * .kdb files (older format)
+* [.kdbx 4.0](https://keepass.info/help/kb/kdbx_4.html)
 
 
 ## Test databases
