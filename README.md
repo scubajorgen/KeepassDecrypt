@@ -101,9 +101,11 @@ The Header in the .kdbx file contains the information that is needed together wi
 
 ![](image/header.png)
 
-The header consists of two signatures and a number of fields.
+The header consists of two signatures, a version and a number of fields.
 * Signature 1: 0x9aa2d903
 * Signature 2: 0xb54bfb67
+
+The version is 0x00030001 for version KDBX 3.1 and 0x00040000 for KDBX 4.0.
 
 Fields consist of an identification, a value length (big endian) and a value. Following fields are seen:
 * 0: end of header; value is 4 bytes 0x0d0a0d0a
