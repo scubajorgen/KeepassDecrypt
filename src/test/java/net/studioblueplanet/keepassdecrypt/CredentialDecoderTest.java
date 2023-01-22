@@ -6,7 +6,7 @@
 package net.studioblueplanet.keepassdecrypt;
 
 import java.util.List;
-import net.studioblueplanet.keepassdecrypt.KeepassDatabase.PasswordCipher;
+import net.studioblueplanet.keepassdecrypt.DatabaseHeader.PasswordCipher;
 import net.studioblueplanet.keepassdecrypt.CredentialDecoder.Credential;
 import org.junit.After;
 import org.junit.AfterClass;

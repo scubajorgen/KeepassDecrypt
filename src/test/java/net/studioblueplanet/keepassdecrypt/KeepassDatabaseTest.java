@@ -9,11 +9,14 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import static org.junit.Assert.*;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+
+import net.studioblueplanet.keepassdecrypt.DatabaseHeader.PasswordCipher;
 
 /**
  *
@@ -65,6 +68,46 @@ public class KeepassDatabaseTest
     }
 
     /**
+     * Test of decryptDatabase method, of class KeepassDatabase.
+     */
+    @Test
+    public void testDecryptDatabaseNoZip() throws IOException
+    {
+        System.out.println("decryptDatabase");
+        String password = "";
+        KeepassDatabase instance = new KeepassDatabase("src/test/resources/test_nozip.kdbx");
+        
+        
+        String expResult = new String(Files.readAllBytes((new File("src/test/resources/test_nozip.kdbx.xml")).toPath()));
+        String result = instance.decryptDatabase("test");
+        System.out.println(instance.getDatabaseAsXml());
+        assertEquals(expResult, result);
+    }    
+
+    /**
+     * Test of decryptDatabase method, of class KeepassDatabase.
+     */
+
+    @Test
+    @Ignore
+    public void testDecryptDatabaseChaCha() throws IOException
+    {
+        System.out.println("decryptDatabase");
+        String password = "";
+        KeepassDatabase instance = new KeepassDatabase("src/test/resources/test_chacha.kdbx");
+instance.dumpData();
+        
+        
+        String expResult = new String(Files.readAllBytes((new File("src/test/resources/test_chacha.kdbx.xml")).toPath()));
+        String result = instance.decryptDatabase("test");
+        
+        
+        System.out.println(instance.getDatabaseAsXml());
+        assertEquals(expResult, result);
+    }    
+
+
+    /**
      * Test of testPassword method, of class KeepassDatabase.
      */
     @Test
@@ -90,8 +133,8 @@ public class KeepassDatabaseTest
         System.out.println("testPassword");
         String password = "";
         KeepassDatabase instance = new KeepassDatabase("src/test/resources/test.kdbx");
-        KeepassDatabase.PasswordCipher expResult=KeepassDatabase.PasswordCipher.SALSA20;
-        KeepassDatabase.PasswordCipher result=instance.getPasswordEncryption();
+        PasswordCipher expResult=PasswordCipher.SALSA20;
+        PasswordCipher result=instance.getPasswordEncryption();
         assertEquals(expResult, result);
     }
   

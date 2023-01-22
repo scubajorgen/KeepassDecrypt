@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import javax.xml.parsers.*;
-import net.studioblueplanet.keepassdecrypt.KeepassDatabase.PasswordCipher;
+import net.studioblueplanet.keepassdecrypt.DatabaseHeader.PasswordCipher;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.rzo.netty.ahessian.crypto.CryptoException;
