@@ -5,7 +5,6 @@
  */
 package net.studioblueplanet.keepassdecrypt;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -25,19 +24,23 @@ import org.apache.logging.log4j.Logger;
  */
 public class DatabaseDecrypter3 implements DatabaseDecrypter
 {
-    private final static Logger     LOGGER = LogManager.getLogger(KeepassDatabase.class);
-    private final DatabaseHeader    header;
-    private final byte[]            encryptedDatabase;
+    private final static Logger     LOGGER = LogManager.getLogger(DatabaseDecrypter3.class);
+    private DatabaseHeader          header;
+    private byte[]                  encryptedDatabase;
     
     private byte[]                  masterKey;
-    private byte[]                  decryptedDatabase;      // Database data after decryption
-    private byte[]                  databaseBlocks;         // Database data containing the zipped blocks
+    private byte[]                  decryptedPayload;       // File payload after decryption (32 bytes + blocks)
+    private byte[]                  databaseBlocks;         // Database data containing the blocks
     private byte[]                  zippedDatabase;         // Blocks concatenated: gzip
     private byte[]                  unzippedDatabase;       // unzipped bytes of representing the database
     private String                  xmlDatabase;            // Database as XML string    
     
-    
-    public DatabaseDecrypter3(DatabaseHeader header, byte[] encryptedDatabase)
+    /**
+     * Initialize
+     * @param header Header to use
+     * @param encryptedDatabase The encrypted payload
+     */
+    public void initialize(DatabaseHeader header, byte[] encryptedDatabase)
     {
         this.header             =header;
         this.encryptedDatabase  =encryptedDatabase;        
@@ -57,21 +60,25 @@ public class DatabaseDecrypter3 implements DatabaseDecrypter
         valid=generateKey(password);
         if (valid)
         {
-            valid=decryptDatabase();
+            valid=decryptPayload();
             if (valid)
             {
-                valid=deblockify();
+                valid=validateDecryption();
                 if (valid)
                 {
-                    if (header.getCompressionFlags()==0x01)
+                    valid=deblockify();
+                    if (valid)
                     {
-                        unzippedDatabase=decompress(zippedDatabase);
+                        if (header.getCompressionFlags()==0x01)
+                        {
+                            unzippedDatabase=Toolbox.decompress(zippedDatabase);
+                        }
+                        else
+                        {
+                            unzippedDatabase=zippedDatabase;
+                        }
+                        xmlDatabase=new String(unzippedDatabase);
                     }
-                    else
-                    {
-                        unzippedDatabase=zippedDatabase;
-                    }
-                    xmlDatabase=new String(unzippedDatabase);
                 }
             }
         }
@@ -92,7 +99,11 @@ public class DatabaseDecrypter3 implements DatabaseDecrypter
         valid=generateKey(password);
         if (valid)
         {
-            valid=decryptDatabase();
+            valid=decryptPayloadAes();
+            if (valid)
+            {
+                valid=validateDecryption();
+            }
         }
         return valid;
     }
@@ -177,10 +188,28 @@ public class DatabaseDecrypter3 implements DatabaseDecrypter
         byte[] streamStartBytes=header.getStreamStartBytes();
         for(int i=0; i<streamStartBytes.length; i++)
         {
-            if (streamStartBytes[i]!=decryptedDatabase[i])
+            if (streamStartBytes[i]!=decryptedPayload[i])
             {
                 valid=false;
             }
+        }
+        return valid;
+    }
+
+    /**
+     * Decrypt the database using Aes and the master key
+     */
+    private boolean decryptPayload()
+    {
+        boolean valid;
+        if (Toolbox.bytesToString(header.getCipherUuid()).equals(DatabaseHeader.UUID_AESCBC))
+        {
+            valid=decryptPayloadAes();
+        }
+        else
+        {
+            LOGGER.error("Not supported cipher used");
+            valid=false;
         }
         return valid;
     }
@@ -189,7 +218,7 @@ public class DatabaseDecrypter3 implements DatabaseDecrypter
     /**
      * Decrypt the database using Aes and the master key
      */
-    private boolean decryptDatabase()
+    private boolean decryptPayloadAes()
     {
         boolean valid;
         valid=false;
@@ -206,20 +235,8 @@ public class DatabaseDecrypter3 implements DatabaseDecrypter
             SecretKeySpec key   =new SecretKeySpec(masterKey, "AES");
             cipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(header.getEncryptionIv()));
             
-            decryptedDatabase   =cipher.doFinal(encryptedDatabase);
-            
-            if (validateDecryption())
-            {
-                byte[] streamStartBytes=header.getStreamStartBytes();
-                LOGGER.debug("Decrypted length {}", decryptedDatabase.length);
-                databaseBlocks=Toolbox.copyBytes(decryptedDatabase, streamStartBytes.length, decryptedDatabase.length-streamStartBytes.length);
-                LOGGER.debug("Blocks length    {}", databaseBlocks.length);
-                valid=true;
-            }
-            else
-            {
-                LOGGER.error("Decryption failed");
-            }
+            decryptedPayload    =cipher.doFinal(encryptedDatabase);
+            valid               =true;
         }
         catch (NoSuchAlgorithmException e)
         {
@@ -248,28 +265,6 @@ public class DatabaseDecrypter3 implements DatabaseDecrypter
         return valid;
     }
 
-
-    /**
-     * Validates the hash of the block
-     * @param block Block to test
-     * @param hash Hash to use
-     * @return True if validated.
-     */
-    private boolean validateBlock(byte[] block, byte[] hash)
-    {
-        boolean valid=true;
-        byte[] blockHash        =Toolbox.sha256(block);
-        for(int i=0;i<blockHash.length && valid;i++)
-        {
-            if (blockHash[i]!=hash[i])
-            {
-                valid=false;
-                LOGGER.error("Block hash invalid!");
-            }
-        }
-        return true;
-    }
-    
     /**
      * The payload before decompression consists is subdivided in blocks.
      * The hash of the blocks is tested and the blocks are glued together
@@ -280,6 +275,9 @@ public class DatabaseDecrypter3 implements DatabaseDecrypter
         int     totalSize;
         boolean valid;
 
+        byte[] streamStartBytes=header.getStreamStartBytes();
+        databaseBlocks=Toolbox.copyBytes(decryptedPayload, streamStartBytes.length, decryptedPayload.length-streamStartBytes.length);
+        LOGGER.debug("Blocks length    {}", databaseBlocks.length);        
         
         index=0;
         totalSize=0;
@@ -293,7 +291,6 @@ public class DatabaseDecrypter3 implements DatabaseDecrypter
             totalSize+=size;
             LOGGER.info("ID: {}, size {}", id, size);
             index+=size;
-            
         }
         
         zippedDatabase=new byte[totalSize];
@@ -308,45 +305,15 @@ public class DatabaseDecrypter3 implements DatabaseDecrypter
             index+=32;
             int size=(int)Toolbox.readInt(databaseBlocks, index, 4);
             index+=4;
-            
             byte[] block=Toolbox.copyBytes(databaseBlocks, index, size);
-            
-            valid=validateBlock(block, hash);
-            
-            System.arraycopy(block, 0, zippedDatabase, totalSize, size);
-
-            totalSize+=size;
-            index+=size;            
+            if (size>0)
+            {
+                valid=Toolbox.validateSha256Hash(block, hash);
+                System.arraycopy(block, 0, zippedDatabase, totalSize, size);
+                totalSize+=size;
+                index+=size;        
+            }
         }
         return valid;
-    }
-    
-    private byte[] decompress(byte[] gzip)
-    {
-        byte[] buf = new byte[1024];
-        byte[] uncompressed=null;
-        try
-        {
-            // With 'gzip' being the compressed buffer
-            java.io.ByteArrayInputStream bytein = new java.io.ByteArrayInputStream(gzip);
-            java.util.zip.GZIPInputStream gzin = new java.util.zip.GZIPInputStream(bytein);
-            java.io.ByteArrayOutputStream byteout = new java.io.ByteArrayOutputStream();
-            int res = 0;
-            
-            while (res >= 0) 
-            {
-                res = gzin.read(buf, 0, buf.length);
-                if (res > 0) 
-                {
-                    byteout.write(buf, 0, res);
-                }
-            }
-            uncompressed = byteout.toByteArray();
-        }
-        catch(IOException e)
-        {
-            LOGGER.error("Error decompressing: ", e.getMessage());
-        }
-        return uncompressed;
     }
 }

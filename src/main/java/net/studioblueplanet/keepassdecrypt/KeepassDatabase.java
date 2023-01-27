@@ -48,17 +48,18 @@ public class KeepassDatabase
             
             if (header.isVersion3())
             {
-                decrypter=new DatabaseDecrypter3(header, encryptedDatabase);
+                decrypter=new DatabaseDecrypter3();
+                decrypter.initialize(header, encryptedDatabase);            
             }
             else if (header.isVersion4())
             {
                 decrypter=new DatabaseDecrypter4();
+                decrypter.initialize(header, encryptedDatabase);            
             }
             else
             {
                 LOGGER.error("Unsupporterd KDBX version");
             }
-            
             LOGGER.info("Encrypted database length: {}", encryptedDatabase.length);            
         }
         catch (IOException e)

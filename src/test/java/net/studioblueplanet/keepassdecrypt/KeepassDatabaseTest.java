@@ -53,16 +53,14 @@ public class KeepassDatabaseTest
      * Test of decryptDatabase method, of class KeepassDatabase.
      */
     @Test
-    public void testDecryptDatabase() throws IOException
+    public void testDecryptDatabase3() throws IOException
     {
         System.out.println("decryptDatabase");
         String password = "";
         KeepassDatabase instance = new KeepassDatabase("src/test/resources/test.kdbx");
-        
         String expResult = new String(Files.readAllBytes((new File("src/test/resources/test.kdbx.xml")).toPath()));
         String result = instance.decryptDatabase("test");
         assertEquals(expResult, result);
-        
         result=instance.decryptDatabase("wrongpassword");
         assertEquals(null, result);
     }
@@ -71,42 +69,63 @@ public class KeepassDatabaseTest
      * Test of decryptDatabase method, of class KeepassDatabase.
      */
     @Test
-    public void testDecryptDatabaseNoZip() throws IOException
+    public void testDecryptDatabase3NoZip() throws IOException
     {
         System.out.println("decryptDatabase");
         String password = "";
         KeepassDatabase instance = new KeepassDatabase("src/test/resources/test_nozip.kdbx");
-        
-        
         String expResult = new String(Files.readAllBytes((new File("src/test/resources/test_nozip.kdbx.xml")).toPath()));
         String result = instance.decryptDatabase("test");
-        System.out.println(instance.getDatabaseAsXml());
         assertEquals(expResult, result);
     }    
 
     /**
      * Test of decryptDatabase method, of class KeepassDatabase.
      */
-
     @Test
-    @Ignore
-    public void testDecryptDatabaseChaCha() throws IOException
+    //@Ignore
+    public void testDecryptDatabase4ChaChaAesNozip() throws IOException
     {
         System.out.println("decryptDatabase");
-        String password = "";
-        KeepassDatabase instance = new KeepassDatabase("src/test/resources/test_chacha.kdbx");
-instance.dumpData();
-        
-        
-        String expResult = new String(Files.readAllBytes((new File("src/test/resources/test_chacha.kdbx.xml")).toPath()));
+        String password = "test";
+        KeepassDatabase instance = new KeepassDatabase("src/test/resources/test_chacha_aes_nozip.kdbx");
+        String expResult = new String(Files.readAllBytes((new File("src/test/resources/test_chacha_aes_nozip.kdbx.xml")).toPath()));
         String result = instance.decryptDatabase("test");
-        
-        
-        System.out.println(instance.getDatabaseAsXml());
         assertEquals(expResult, result);
     }    
 
+    /**
+     * Test of decryptDatabase method, of class KeepassDatabase.
+     */
+    @Test
+    //@Ignore
+    public void testDecryptDatabase4ChaChaAes() throws IOException
+    {
+        System.out.println("decryptDatabase");
+        String password = "test";
+        KeepassDatabase instance = new KeepassDatabase("src/test/resources/test_chacha_aes.kdbx");
+        String expResult = new String(Files.readAllBytes((new File("src/test/resources/test_chacha_aes.kdbx.xml")).toPath()));
+        String result = instance.decryptDatabase("test");
+        System.out.println(result);
+        assertEquals(expResult, result);
+    }    
 
+    /**
+     * Test of decryptDatabase method, of class KeepassDatabase.
+     */
+    @Test
+    @Ignore
+    public void testDecryptDatabase4ChaChaArgon2d() throws IOException
+    {
+        System.out.println("decryptDatabase");
+        String password = "test";
+        KeepassDatabase instance = new KeepassDatabase("src/test/resources/test_chacha_argon2d.kdbx");
+        String expResult = new String(Files.readAllBytes((new File("src/test/resources/test_chacha_argon.kdbx.xml")).toPath()));
+        String result = instance.decryptDatabase("test");
+        System.out.println(result);
+        assertEquals(expResult, result);
+    }    
+ 
     /**
      * Test of testPassword method, of class KeepassDatabase.
      */

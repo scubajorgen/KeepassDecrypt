@@ -12,6 +12,13 @@ package net.studioblueplanet.keepassdecrypt;
 public interface DatabaseDecrypter
 {
     /**
+     * Initializes the decrypter
+     * @param header
+     * @param encryptedDatabase 
+     */
+    public void initialize(DatabaseHeader header, byte[] encryptedDatabase);  
+    
+    /**
      * Decrypt the database using the password given. 
      * @param password Password to use for decrypting
      * @return The Database XML as string
