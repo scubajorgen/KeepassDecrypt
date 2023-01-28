@@ -132,15 +132,25 @@ public class KeepassDatabaseTest
     @Test
     public void testTestPassword()
     {
+        // KDBX 3
         System.out.println("testPassword");
-        String password = "";
-        KeepassDatabase instance = new KeepassDatabase("src/test/resources/test.kdbx");;
-        boolean expResult = false;
-        boolean result = instance.testPassword("wrong password");
+        KeepassDatabase instance    = new KeepassDatabase("src/test/resources/test.kdbx");
+        boolean expResult           = false;
+        boolean result              = instance.testPassword("wrong password");
         assertEquals(expResult, result);
-        expResult = true;
-        result = instance.testPassword("test");
+        expResult                   = true;
+        result                      = instance.testPassword("test");
         assertEquals(expResult, result);
+
+        // KDBX 4
+        instance                    = new KeepassDatabase("src/test/resources/test_chacha_aes_nozip.kdbx");
+        expResult                   = false;
+        result                      = instance.testPassword("wrong password");
+        assertEquals(expResult, result);
+        expResult                   = true;
+        result                      = instance.testPassword("test");
+        assertEquals(expResult, result);
+
     }
     
     /**

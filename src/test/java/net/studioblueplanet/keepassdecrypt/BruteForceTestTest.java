@@ -49,9 +49,10 @@ public class BruteForceTestTest
     @Test
     public void testExecute()
     {
-        System.out.println("execute");
+        System.out.println("execute kdbx3");
         int maxChars = 1;
         
+        // KDBX 3
         // password found
         BruteForceTest instance = new BruteForceTest("src/test/resources/test2.kdbx");
         boolean expResult = true;
@@ -63,6 +64,28 @@ public class BruteForceTestTest
         expResult = false;
         result = instance.execute(2);
         assertEquals(expResult, result);
+    }    /**
+     * Test of execute method, of class BruteForceTest.
+     */
+    @Test
+    public void testExecuteKdbx4()
+    {
+        System.out.println("execute kdbx4");
+        int maxChars = 1;
+        
+        // KDBX 4
+        // password found
+        BruteForceTest instance = new BruteForceTest("src/test/resources/test_chacha_aes_nozip2.kdbx");
+        boolean expResult = true;
+        boolean result = instance.execute(1);
+        assertEquals(expResult, result);
+        
+        // password not found
+        instance = new BruteForceTest("src/test/resources/test.kdbx");
+        expResult = false;
+        result = instance.execute(2);
+        assertEquals(expResult, result);
     }
+ 
     
 }
