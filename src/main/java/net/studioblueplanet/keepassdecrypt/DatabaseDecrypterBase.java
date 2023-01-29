@@ -46,12 +46,12 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
 
   
     
-    protected boolean generateMasterKey(String password, long rounds, byte[] seed)
+    protected boolean generateMasterKey(String password)
     {
         boolean     valid;
         
         valid=true;       
-        valid=generateMasterKeyAes(password, rounds, seed);
+        valid=generateMasterKeyAes(password);
 
         return valid;
     }
@@ -61,7 +61,7 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
      * Generate the master decryption/encryption key based on the password
      * @param password Password
      */
-    private boolean generateMasterKeyAes(String password, long rounds, byte[] seed)
+    private boolean generateMasterKeyAes(String password)
     {
         boolean valid;
         valid=false;
@@ -71,12 +71,12 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
             compositeKey=Toolbox.sha256(compositeKey);
 
             Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
-            SecretKeySpec key=new SecretKeySpec(seed, "AES");
+            SecretKeySpec key=new SecretKeySpec(header.getKdfTransformSeed(), "AES");
             cipher.init(Cipher.ENCRYPT_MODE, key);
 
             transformedKey=compositeKey;
             LOGGER.debug("Transformed Key    : {}", Toolbox.bytesToString(transformedKey));
-            for (int i=0; i<rounds; i++)
+            for (int i=0; i<header.getKdfTransformRounds(); i++)
             {
                 transformedKey=cipher.doFinal(transformedKey);
             }

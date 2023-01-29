@@ -30,7 +30,7 @@ public class DatabaseDecrypter3 extends DatabaseDecrypterBase
         boolean valid;
         
         xmlDatabase=null;
-        valid=generateMasterKey(password, header.getTransformRounds(), header.getTransformSeed());
+        valid=generateMasterKey(password);
         if (valid)
         {
             valid=decryptPayload(filePayload);
@@ -76,7 +76,7 @@ public class DatabaseDecrypter3 extends DatabaseDecrypterBase
     {
         boolean valid;
         
-        valid=generateMasterKey(password, header.getTransformRounds(), header.getTransformSeed());
+        valid=generateMasterKey(password);
         if (valid)
         {
             valid=decryptPayload(filePayload);

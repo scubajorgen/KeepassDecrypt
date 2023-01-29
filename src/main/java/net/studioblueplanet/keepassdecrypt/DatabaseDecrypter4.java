@@ -17,7 +17,7 @@ public class DatabaseDecrypter4 extends DatabaseDecrypterBase
 {
     private final static Logger     LOGGER = LogManager.getLogger(DatabaseDecrypter4.class);
 
-    private DatabaseHeader          innerHeader;
+    private HeaderFields            innerHeader;
     private byte[]                  encryptedPayload;
     private byte[]                  unzippedPayload;
     private byte[]                  database;
@@ -35,7 +35,7 @@ public class DatabaseDecrypter4 extends DatabaseDecrypterBase
     {
         boolean valid;
         
-        generateMasterKey(password, header.getKdfTransformRounds(), header.getKdfTransformSeed());
+        generateMasterKey(password);
         
         
         byte[] a            =Toolbox.concatenate(header.getMasterSeed(), transformedKey);
@@ -88,7 +88,7 @@ public class DatabaseDecrypter4 extends DatabaseDecrypterBase
     {
         boolean valid;
         
-        valid=generateMasterKey(password, header.getKdfTransformRounds(), header.getKdfTransformSeed());;
+        valid=generateMasterKey(password);
         if (valid)
         {
             valid=validateHeaderHmacHash();
@@ -194,9 +194,9 @@ public class DatabaseDecrypter4 extends DatabaseDecrypterBase
             unzippedPayload=decryptedPayload;
         }
         
-        innerHeader=new DatabaseHeader(unzippedPayload, true);
-        int length=innerHeader.getHeaderLength();
-        xmlDatabase=new String(Toolbox.copyBytes(unzippedPayload, length, unzippedPayload.length-length), StandardCharsets.UTF_8);
+        innerHeader =new HeaderFields(4, unzippedPayload, 0);
+        int length  =innerHeader.getFieldDataSize();
+        xmlDatabase =new String(Toolbox.copyBytes(unzippedPayload, length, unzippedPayload.length-length), StandardCharsets.UTF_8);
         return valid;
     }
 }

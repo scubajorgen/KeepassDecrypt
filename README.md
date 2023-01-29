@@ -10,11 +10,10 @@ In the XML file the password fields are encrypted at a second level. The softwar
 
 Then it tries to brute force the test_3charspassword.kdbx database using a quick and dirty and certainly inefficient algorithm.
 
-This applies to version 3.1 of the .kdbx format. 
+This applies to version .kdbx 3.1 and * [.kdbx 4.0](https://keepass.info/help/kb/kdbx_4.html)  formats. The .kdbx 4 format differs from the .kdbx 3.x format. For KDBX 4, refer to to the unit tests.
+
 Out of scope:
 * .kdb files (older format)
-* [.kdbx 4.0](https://keepass.info/help/kb/kdbx_4.html)
-
 
 ## Test databases
 Three KeePass testdatabases for testing are enclosed:
@@ -24,14 +23,14 @@ Three KeePass testdatabases for testing are enclosed:
 
 Of course you can open them in KeePass.
 
-A database file consists of a header and a payload. The header defines the parameters used for decryption, the payload is the encrypted and wrapped up XML database containing your credentials.
+A database file consists of a **header** and a **payload**. The header defines the parameters used for decryption, the payload is the encrypted and wrapped up XML database containing your credentials.
 
-## Processing the database
-Keepass executes following steps to decrypt the Password database:
+## Processing the kdbx 3.x database
+Keepass executes following steps to decrypt the Password database 3.x:
 1. Generate the **master key** from the passwords or keys entered by the user.
-1. **Decrypt** the file content
-1. Convert **blocks** to payload
-1. **Decompress** the payload
+1. **Decrypt** the file content. This results in content in the form of blocks.
+1. Validate the hash of the **blocks** and merge them to payload
+1. Optionally: **Decompress** the payload
 
 Refer to [this site](https://gist.github.com/lgg/e6ccc6e212d18dd2ecd8a8c116fb1e45) for a full description or refer to the code of this project.
 
@@ -89,6 +88,23 @@ Note that the blocks are precededed with a string of 32 random bytes that are al
 ### Decompress the payload
 To get to the XML one optional step remains: unzipping the payload.
 
+## Processing the kdbx 4.x database
+Keepass executes following steps to decrypt the Password database 4.x:
+1. Generate the **master key** from the passwords or keys entered by the user.
+1. Validate the hash of the **blocks** and merge to payload
+1. **Decrypt** the payload
+1. Optionally: **Decompress** the payload
+
+![](image/keepass4.png)
+
+The header has basically the same format as the 3.x KDBX, however a field has been added containing a encoded KDF variant library, which contains paramaeters for the key generation.
+
+### Generating the master key
+Basically the same as for KDBX 3.1, however more Key Derivation Functions (KDF) have been added: Argon2d and Argon2id encryption methods next to the AES. In the header a new field (11) has been added containing the parameters for these KDFs. 
+
+### Validate and merge blocks
+In KDBX 4 the blocks contain encrypted payload. The HMAC SHA256 hash of the blocks can be validated prior to decryption.
+
 ## Decrypting a password
 A password within the XML is decrypted as follows
 1. The 'Random Stream ID' defines the algorithm used: Salsa20 or RC4
@@ -105,7 +121,7 @@ The header consists of two signatures, a version and a number of fields.
 * Signature 1: 0x9aa2d903
 * Signature 2: 0xb54bfb67
 
-The version is 0x00030001 for version KDBX 3.1 and 0x00040000 for KDBX 4.0.
+The version is 0x00030001 for version KDBX 3.1 and 0x00040000 for KDBX 4.0 (hence the version consists of 2 byte major and 2 byte minor version).
 
 Fields consist of an identification, a value length (big endian) and a value. Following fields are seen:
 * 0: end of header; value is 4 bytes 0x0d0a0d0a
@@ -113,28 +129,68 @@ Fields consist of an identification, a value length (big endian) and a value. Fo
 * 2: Cipher UUID; 0x31c1f2e6bf714350be5805216afc5aff for AES
 * 3: Compression flags: 1 - GZIP compression
 * 4: Master seed
-* 5: Transform seed
-* 6: Transform rounds
+* 5: Transform seed - obsolete in .KDBX 4, replaced by Variant Library
+* 6: Transform rounds - obsolete in .KDBX 4, replaced by Variant Library
 * 7: Encryption initialisation vector (IV)
 * 8: Password encryption key, used for 2nd round of password encryption
 * 9: Stream start bytes, first 32 (random) bytes of unencrypted content.
 * 10: Password cipher: 0 - none, 1 - RC4, 2 - Salsa20
+* 11: Encoded KDF variant library (.KDBX 4)
+
+In KDBX 4 the header is followed by
+* SHA256 of the header
+* HMAC SHA256 of the header
+
+The first can be validated by simply calculating the SHA256 hash of the header.
+For the latter it is required that based on password and/or keyfile the master key is generated. The intermediate transformed key is used as key for calculating the HMAC SHA256 hash.
+
+![](image/header4.png)
+
+When brute forcing this HMAC SHA256 of the header can be used to validate the password.
 
 ## Results
-It first shows the header fields, defining the 
+It first shows the header fields, defining the decryption. For version 3:
 ```
-2023-01-15 07:47:33 INFO Header Signature 1   : 9aa2d903
-2023-01-15 07:47:33 INFO Header Signature 2   : b54bfb67
-2023-01-15 07:47:33 INFO 2 Cipher UUID        : 31c1f2e6bf714350be5805216afc5aff
-2023-01-15 07:47:33 INFO 3 Compression flags  : 1
-2023-01-15 07:47:33 INFO 4 Master Seed        : 3beafb2ea5d451f2d2fad3b9956420e540bce9b9d7091c25d292702bf0d5202b
-2023-01-15 07:47:33 INFO 5 Transform Seed     : 45028183645ca4f6a83eafcb645e3681aa936806d94ddab03768da08d6d17b01
-2023-01-15 07:47:33 INFO 6 Transform rounds   : 60000
-2023-01-15 07:47:33 INFO 7 Encryption IV      : 2c2c74b6794b267ae94b32a26af3661d
-2023-01-15 07:47:33 INFO 8 Password Encr. key : 6b25c9d70e5c19ac5174d77453ad23701527562e02b8ec5cac892dc3e4b51c12
-2023-01-15 07:47:33 INFO 9 Stream start bytes : 5599f845b9d82287d07a6d045c194e533abff631a25b581dfe9d7b9969f296af
-2023-01-15 07:47:33 INFO A Random Stream ID   : 2
-2023-01-15 07:47:33 INFO 0 End of header      : 0d0a0d0a
+2023-01-29 20:13:39 INFO Header Signature 1   : 9aa2d903
+2023-01-29 20:13:39 INFO Header Signature 2   : b54bfb67
+2023-01-29 20:13:39 INFO KDBX Version         : 3.1
+2023-01-29 20:13:39 INFO 2 Cipher UUID        : 31c1f2e6bf714350be5805216afc5aff
+2023-01-29 20:13:39 INFO 3 Compression flags  : 1
+2023-01-29 20:13:39 INFO 4 Master Seed        : 580eb0ec652b3960f20bab8f423b4518d9a52522019545969ace411400ad34d2
+2023-01-29 20:13:39 INFO 5 Transform Seed     : 59bd2b8f15104441b35d00ee557a28a0652d0c86a130635baca2d3f41335bb50
+2023-01-29 20:13:39 INFO 6 Transform rounds   : 60000
+2023-01-29 20:13:39 INFO 7 Encryption IV      : aabd203f8eac9d46e0669a4eadcdef57
+2023-01-29 20:13:39 INFO 8 Password Encr. key : c724e98b5e131a2bf982c42967fe1265581fcf1bb462bb8efaf22b3073e2c0ce
+2023-01-29 20:13:39 INFO 9 Stream start bytes : 85d5e97c493e47ee127cd78805ff3082b6b16c4e457ef73de144c049ccb00720
+2023-01-29 20:13:39 INFO A Random Stream ID   : SALSA20
+2023-01-29 20:13:39 INFO B KDF parameters     : -
+2023-01-29 20:13:39 INFO 0 End of header      : 0d0a0d0a
+```
+
+For version 4:
+```
+2023-01-29 20:24:09 INFO Header Signature 1   : 9aa2d903
+2023-01-29 20:24:09 INFO Header Signature 2   : b54bfb67
+2023-01-29 20:24:09 INFO KDBX Version         : 4.0
+2023-01-29 20:24:09 INFO 2 Cipher UUID        : d6038a2b8b6f4cb5a524339a31dbb59a
+2023-01-29 20:24:09 INFO 3 Compression flags  : 1
+2023-01-29 20:24:09 INFO 4 Master Seed        : a9cc92ffb93f86a31655c9e85d5adb234f54f9ba3a8f98794ad22b711e726d57
+2023-01-29 20:24:09 INFO 5 Transform Seed     : -
+2023-01-29 20:24:09 INFO 6 Transform rounds   : null
+2023-01-29 20:24:09 INFO 7 Encryption IV      : 097631e2f4277a20fc37a63a
+2023-01-29 20:24:09 INFO 8 Password Encr. key : -
+2023-01-29 20:24:09 INFO 9 Stream start bytes : -
+2023-01-29 20:24:09 INFO A Random Stream ID   : null
+2023-01-29 20:24:09 INFO B KDF parameters     : 00014205000000245555494410000000c9d9f39a628a4460bf740d08c18a4fea0501000000520800000060ea0000000000004201000000532000000014c7023eb53c968c1d3bca3b84db9bec2925d8b7566348ccadf01d0e5f0dc3cc00
+2023-01-29 20:24:09 INFO 0 End of header      : 0d0a0d0a
+2023-01-29 20:24:09 INFO KDF PARAMETERS (VERSION 4)
+2023-01-29 20:24:09 INFO KDF cipher UUID      : c9d9f39a628a4460bf740d08c18a4fea
+2023-01-29 20:24:09 INFO KDF Transform rounds : 60000
+2023-01-29 20:24:09 INFO KDF Transform seed   : 14c7023eb53c968c1d3bca3b84db9bec2925d8b7566348ccadf01d0e5f0dc3cc
+2023-01-29 20:24:09 INFO KDF Iterations       : null
+2023-01-29 20:24:09 INFO KDF Parallelism      : null
+2023-01-29 20:24:09 INFO KDF mem size         : null
+2023-01-29 20:24:09 INFO KDF V                : null
 ```
 
 And finally the XML database:

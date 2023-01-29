@@ -26,28 +26,70 @@ public class DatabaseHeader
     
     public enum PasswordCipher
     {
-        NO,
-        ARC4,
-        SALSA20       
-    }
+        NO(0x00),
+        ARC4(0x01),
+        SALSA20(0x02);
+        
+        public final int value;
 
-    private byte[]              filedata;
+        private PasswordCipher(int value)
+        {
+            this.value=value;
+        }
+
+        public static PasswordCipher PasswordCipherOfValue(int value) 
+        {
+            for (PasswordCipher v : values()) 
+            {
+                if (v.value==value) 
+                {
+                    return v;
+                }
+            }
+            return null;
+        }
+    }
+    
+    public enum ValueType
+    {
+        ENDOFHEADER             (0x00),
+        CIPHERUUID              (0x02),
+        COMPRESSIONFLAGS        (0x03),
+        MASTERSEED              (0x04),
+        KDFTRANSFORMSEED        (0x05),
+        KDFTRANSFORMROUNDS      (0x06),
+        ENCRYPTIONIV            (0x07),
+        PASSWORDENCRYPTIONKEY   (0x08),
+        STREAMSTARTBYTES        (0x09),
+        RANDOMSTREAMID          (0x0A),
+        KDFVARIANTLIBRARY       (0x0B);
+        public final int value;
+
+        private ValueType(int value)
+        {
+            this.value=value;
+        }
+    };
+
+    private final byte[]        filedata;
+    
+    private HeaderFields        headerFields;
     // Header fields
     private byte[]              cipherUuid;
     private byte[]              masterSeed;
-    private byte[]              transformSeed;
     private byte[]              encryptionIv;
+    private Long                transformRounds;
+    private byte[]              transformSeed;
     private byte[]              passwordEncryptionKey;
     private byte[]              streamStartBytes;
     private byte[]              endOfHeader;
     private byte[]              kdfParameters;
     private int                 signature1;
     private int                 signature2;
-    private int                 kdbxVersion;
+    private int                 kdbxMinorVersion;
+    private int                 kdbxMajorVersion;
     private int                 lengthSize;
-    private int                 compressionFlags;
-    private long                transformRounds;
-    private int                 randomStreamId;
+    private Long                compressionFlags;
     private PasswordCipher      passwordCipher;    
     
     private int                 headerLength;       // without hashes
@@ -55,17 +97,15 @@ public class DatabaseHeader
     private VariantDictionary   dictionary;
     
     private String              kdfUuid;            // $UUID
-    private long                kdfTransformRounds; // R
+    private Long                kdfTransformRounds; // R
     private byte[]              kdfTransformSeed;   // S
-    private long                kdfIterations;      // I
-    private long                kdfMemorySize;      // M  in bytes
-    private int                 kdfParallelism;     // P
-    private int                 kdfV;               // V
+    private Long                kdfIterations;      // I
+    private Long                kdfMemorySize;      // M  in bytes
+    private Integer             kdfParallelism;     // P
+    private Integer             kdfV;               // V
          
     private byte[]              headerHash;
     private byte[]              hmacHeaderHash;
-    
-    
     
     /**
      * Constuctor. Parses the header data
@@ -102,15 +142,16 @@ public class DatabaseHeader
         LOGGER.info("Parsing data");
         if (!processOnlyFields)
         {
-            signature1  =(int)Toolbox.readInt(filedata, 0, 4);
-            signature2  =(int)Toolbox.readInt(filedata, 4, 4);
-            kdbxVersion =(int)Toolbox.readInt(filedata, 8, 4);
+            signature1          =(int)Toolbox.readInt(filedata, 0, 4);
+            signature2          =(int)Toolbox.readInt(filedata, 4, 4);
+            kdbxMinorVersion    =(int)Toolbox.readInt(filedata, 8, 2);
+            kdbxMajorVersion    =(int)Toolbox.readInt(filedata,10, 2);
 
-            if (kdbxVersion==0x00030001)
+            if (kdbxMajorVersion==0x0003)
             {
                 lengthSize=2;   // KDBX version 3.x
             }
-            else if (kdbxVersion==0x00040000)
+            else if (kdbxMajorVersion==0x0004)
             {
                 lengthSize=4;   // KDBX version 4.x
             }
@@ -122,72 +163,14 @@ public class DatabaseHeader
             lengthSize=4;
         }
         
-        
-        type    =-1;
-        while (type!=0x00)
+        headerFields=new HeaderFields(lengthSize, filedata, index);
+        index+=headerFields.getFieldDataSize();
+        processHeaderFields();
+        if (isVersion4())
         {
-            type    =filedata[index++];
-            length  =(int)Toolbox.readInt(filedata, index, lengthSize);
-            index+=lengthSize;
-            switch(type)
-            {
-                default:
-                    LOGGER.error("Unknown header field {}", type);
-                    break;
-                case 0x00:
-                    endOfHeader             =Toolbox.copyBytes(filedata, index, length);
-                    break;
-                case 0x01:
-                    break;
-                case 0x02:
-                    cipherUuid              =Toolbox.copyBytes(filedata, index, length);
-                    break;
-                case 0x03:
-                    compressionFlags        =(int)Toolbox.readInt(filedata, index, length);
-                    break;
-                case 0x04:
-                    masterSeed              =Toolbox.copyBytes(filedata, index, length);
-                    break;
-                case 0x05:
-                    transformSeed           =Toolbox.copyBytes(filedata, index, length);
-                    break;
-                case 0x06:
-                    transformRounds         =Toolbox.readInt(filedata, index, length);
-                    break;
-                case 0x07:
-                    encryptionIv            =Toolbox.copyBytes(filedata, index, length);
-                    break;
-                case 0x08:
-                    passwordEncryptionKey   =Toolbox.copyBytes(filedata, index, length);
-                    break;
-                case 0x09:
-                    streamStartBytes        =Toolbox.copyBytes(filedata, index, length);
-                    break;
-                case 0x0a:
-                    randomStreamId          =(int)Toolbox.readInt(filedata, index, length);
-                    switch(randomStreamId)
-                    {
-                        case 1:
-                            passwordCipher=PasswordCipher.ARC4;
-                            break;
-                        case 2:
-                            passwordCipher=PasswordCipher.SALSA20;
-                            break;
-                        case 0:
-                        default:
-                            passwordCipher=PasswordCipher.NO;
-                            break;
-                    }
-                    break;
-                case 0x0b:
-                    kdfParameters       =Toolbox.copyBytes(filedata, index, length);
-                    processDictionary(kdfParameters);
-                    break;
-            }
-            index+=length;
-
+            kdfParameters       =headerFields.getFieldData(ValueType.KDFVARIANTLIBRARY.value);
+            processDictionary(kdfParameters);            
         }
-        
         headerLength=index;
         // The number of bytes read for the header
         if (!processOnlyFields && isVersion4())
@@ -205,6 +188,28 @@ public class DatabaseHeader
             }
         }
         fullHeaderLength=index;
+    }
+    
+    private void processHeaderFields()
+    {
+        Long        integer;
+        cipherUuid              =headerFields.getFieldData(ValueType.CIPHERUUID.value);
+        masterSeed              =headerFields.getFieldData(ValueType.MASTERSEED.value);
+        transformSeed           =headerFields.getFieldData(ValueType.KDFTRANSFORMSEED.value);
+        kdfTransformSeed        =transformSeed;
+        transformRounds         =headerFields.getFieldDataAsInteger(ValueType.KDFTRANSFORMROUNDS.value);
+        kdfTransformRounds      =transformRounds;
+        encryptionIv            =headerFields.getFieldData(ValueType.ENCRYPTIONIV.value);
+        streamStartBytes        =headerFields.getFieldData(ValueType.STREAMSTARTBYTES.value);
+        endOfHeader             =headerFields.getFieldData(ValueType.ENDOFHEADER.value);
+        compressionFlags        =headerFields.getFieldDataAsInteger(ValueType.COMPRESSIONFLAGS.value);
+        passwordEncryptionKey   =headerFields.getFieldData(ValueType.PASSWORDENCRYPTIONKEY.value);
+
+        integer=headerFields.getFieldDataAsInteger(ValueType.RANDOMSTREAMID.value);
+        if (integer!=null)
+        {
+            passwordCipher      =PasswordCipher.PasswordCipherOfValue(integer.intValue());
+        }
     }
     
     /**
@@ -226,7 +231,7 @@ public class DatabaseHeader
     {
         LOGGER.info("Header Signature 1   : {}", String.format("%x", signature1));
         LOGGER.info("Header Signature 2   : {}", String.format("%x", signature2));
-        LOGGER.info("KDBX Version         : {}", String.format("%x", kdbxVersion));
+        LOGGER.info("KDBX Version         : {}.{}", kdbxMajorVersion, kdbxMinorVersion);
         LOGGER.info("2 Cipher UUID        : {}", Toolbox.bytesToString(cipherUuid));
         LOGGER.info("3 Compression flags  : {}", compressionFlags);
         LOGGER.info("4 Master Seed        : {}", Toolbox.bytesToString(masterSeed));
@@ -235,7 +240,7 @@ public class DatabaseHeader
         LOGGER.info("7 Encryption IV      : {}", Toolbox.bytesToString(encryptionIv));
         LOGGER.info("8 Password Encr. key : {}", Toolbox.bytesToString(passwordEncryptionKey));
         LOGGER.info("9 Stream start bytes : {}", Toolbox.bytesToString(streamStartBytes));
-        LOGGER.info("A Random Stream ID   : {}", randomStreamId);
+        LOGGER.info("A Random Stream ID   : {}", passwordCipher);
         LOGGER.info("B KDF parameters     : {}", Toolbox.bytesToString(kdfParameters));
         LOGGER.info("0 End of header      : {}", Toolbox.bytesToString(endOfHeader));
         if (dictionary!=null)
@@ -286,11 +291,6 @@ public class DatabaseHeader
         return masterSeed;
     }
 
-    public byte[] getTransformSeed()
-    {
-        return transformSeed;
-    }
-
     public byte[] getEncryptionIv()
     {
         return encryptionIv;
@@ -311,11 +311,6 @@ public class DatabaseHeader
         return endOfHeader;
     }
 
-    public byte[] getKdfParameters()
-    {
-        return kdfParameters;
-    }
-
     public int getSignature1()
     {
         return signature1;
@@ -328,7 +323,7 @@ public class DatabaseHeader
 
     public int getKdbxVersion()
     {
-        return kdbxVersion;
+        return kdbxMajorVersion;
     }
 
     public int getLengthSize()
@@ -336,19 +331,9 @@ public class DatabaseHeader
         return lengthSize;
     }
 
-    public int getCompressionFlags()
+    public Long getCompressionFlags()
     {
         return compressionFlags;
-    }
-
-    public long getTransformRounds()
-    {
-        return transformRounds;
-    }
-
-    public int getRandomStreamId()
-    {
-        return randomStreamId;
     }
 
     public PasswordCipher getPasswordCipher()
@@ -363,17 +348,17 @@ public class DatabaseHeader
 
     public boolean isVersion3()
     {
-        return ((kdbxVersion&0x00FF0000)==0x00030000);
+        return (kdbxMajorVersion==0x0003);
     }
 
     public boolean isVersion4()
     {
-        return ((kdbxVersion&0x00FF0000)==0x00040000);
+        return (kdbxMajorVersion==0x0004);
     }
 
     public String getKdfUuid()
     {
-        return kdfUuid;
+        return this.dictionary.getValueAsByteString("$UUID");
     }
 
     public long getKdfTransformRounds()
