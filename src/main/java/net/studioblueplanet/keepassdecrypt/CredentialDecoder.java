@@ -225,8 +225,6 @@ public class CredentialDecoder
         {
             LOGGER.error("Unsupported streaming cipher for password decoding");
         }
-        
- 
     }
     
     
@@ -238,7 +236,6 @@ public class CredentialDecoder
     private String decryptPassword(PasswordCipher passwordCipher, String passwordBase64)
     {
         String password     ="";
-       
         
         byte[] decodedBytes = Base64.getDecoder().decode(passwordBase64.getBytes(StandardCharsets.US_ASCII));
         if (passwordCipher==PasswordCipher.SALSA20 || passwordCipher==PasswordCipher.ARC4)
@@ -259,7 +256,6 @@ public class CredentialDecoder
             cipher2.decrypt(decrypted, decodedBytes, decodedBytes.length);
             password            =new String(decrypted, StandardCharsets.US_ASCII);
         }
-            
         return password;
     }
 }

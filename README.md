@@ -36,36 +36,40 @@ Refer to [this site](https://gist.github.com/lgg/e6ccc6e212d18dd2ecd8a8c116fb1e4
 
 ![](image/keepass.png)
 
-Steps can be seen in ```KeepassDatabase``` class, ```decryptDatabase()```
+Steps can be seen in ```DatabaseDecrypter3``` class, ```decryptDatabase()```
 ```
     public String decryptDatabase(String password)
     {
         boolean valid;
         
         xmlDatabase=null;
-        valid=generateKey(password);
+        valid=generateMasterKey(password);
         if (valid)
         {
-            valid=decryptDatabase();
+            valid=decryptPayload(filePayload);
             if (valid)
             {
-                valid=deblockify();
+                valid=validateDecryption();
                 if (valid)
                 {
-                    if (compressionFlags==0x01)
+                    valid=deblockify();
+                    if (valid)
                     {
-                        unzippedDatabase=decompress(zippedDatabase);
+                        if (header.getCompressionFlags()==0x01)
+                        {
+                            unzippedDatabase=Toolbox.decompress(zippedDatabase);
+                        }
+                        else
+                        {
+                            unzippedDatabase=zippedDatabase;
+                        }
+                        xmlDatabase=new String(unzippedDatabase);
                     }
-                    else
-                    {
-                        unzippedDatabase=zippedDatabase;
-                    }
-                    xmlDatabase=new String(unzippedDatabase);
                 }
             }
         }
         return xmlDatabase;
-    }
+    
 ```
 
 ### Generate master key
@@ -96,6 +100,31 @@ Keepass executes following steps to decrypt the Password database 4.x:
 1. Optionally: **Decompress** the payload
 
 ![](image/keepass4.png)
+
+or in code (```DatabaseDecrypter4``` class)
+```
+    public String decryptDatabase(String password)
+    {
+        boolean valid;
+        
+        generateMasterKey(password);
+        generateHmacBaseKey();
+        valid=validateHeaderHmacHash();
+        if (valid)
+        {
+            valid=deblockify();
+            if (valid)
+            {
+                valid=decryptPayload(encryptedPayload);
+                if (valid)
+                {
+                    processDecryptedPayload();
+                }
+            }
+        }
+        return this.xmlDatabase;
+    }
+```
 
 The header has basically the same format as the 3.x KDBX, however a field has been added containing a encoded KDF variant library, which contains paramaeters for the key generation.
 

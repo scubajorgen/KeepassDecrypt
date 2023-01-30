@@ -26,8 +26,7 @@ public class DatabaseDecrypter4 extends DatabaseDecrypterBase
     
     /**
      * Decrypt the database using the password given. 
-
-* @param password Password to use for decrypting
+     * @param password Password to use for decrypting
      * @return The Database XML as string
      */
     @Override
@@ -36,17 +35,8 @@ public class DatabaseDecrypter4 extends DatabaseDecrypterBase
         boolean valid;
         
         generateMasterKey(password);
-        
-        
-        byte[] a            =Toolbox.concatenate(header.getMasterSeed(), transformedKey);
-        byte[] b            ={1};
-        byte[] c            =Toolbox.concatenate(a, b);
-        pbHmacKey           =Toolbox.sha512(c);        
-
-        byte[] headerHmacKey      =getHmacKey(0xffffffffffffffffL, pbHmacKey);
-        
-        valid=header.validateHmacHash(headerHmacKey);
-        
+        generateHmacBaseKey();
+        valid=validateHeaderHmacHash();
         if (valid)
         {
             valid=deblockify();
@@ -59,10 +49,22 @@ public class DatabaseDecrypter4 extends DatabaseDecrypterBase
                 }
             }
         }
-        
         return this.xmlDatabase;
     }
     
+    /**
+     * Generates the base for the HMAC SHA256 validation key for header
+     * and blocks;
+     */
+    private void generateHmacBaseKey()
+    {
+        byte[] a            =Toolbox.concatenate(header.getMasterSeed(), transformedKey);
+        byte[] b            ={1};
+        byte[] c            =Toolbox.concatenate(a, b);
+        pbHmacKey           =Toolbox.sha512(c);        
+    }
+    
+   
     /**
      * Returns the key to be used for 
      * @param index
@@ -89,8 +91,10 @@ public class DatabaseDecrypter4 extends DatabaseDecrypterBase
         boolean valid;
         
         valid=generateMasterKey(password);
+         
         if (valid)
         {
+            generateHmacBaseKey();
             valid=validateHeaderHmacHash();
         }
         return valid;
@@ -102,15 +106,8 @@ public class DatabaseDecrypter4 extends DatabaseDecrypterBase
      */
     private boolean validateHeaderHmacHash()
     {
-        byte[] a            =Toolbox.concatenate(header.getMasterSeed(), transformedKey);
-        byte[] b            ={1};
-        byte[] c            =Toolbox.concatenate(a, b);
-        pbHmacKey           =Toolbox.sha512(c);        
-
         byte[] headerHmacKey      =getHmacKey(0xffffffffffffffffL, pbHmacKey);
-        
         boolean valid=header.validateHmacHash(headerHmacKey);
-        
         return valid;
     }
     
@@ -166,7 +163,10 @@ public class DatabaseDecrypter4 extends DatabaseDecrypterBase
                 byte[] blockConcat      =Toolbox.concatenate(sequenceNumber, lengthBytes);
                 blockConcat             =Toolbox.concatenate(blockConcat, encryptedPayload);
 
+/*
                 byte[] blockHmacKey     =Toolbox.sha512(Toolbox.concatenate(sequenceNumber, pbHmacKey));            
+*/  
+                byte[] blockHmacKey     =getHmacKey(i, pbHmacKey);
                 valid=Toolbox.validateHmacSha256Hash(blockConcat, blockHmacKey, hash);
             }
             i++;
