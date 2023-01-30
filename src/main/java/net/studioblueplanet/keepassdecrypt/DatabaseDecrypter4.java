@@ -196,6 +196,7 @@ public class DatabaseDecrypter4 extends DatabaseDecrypterBase
         
         innerHeader =new HeaderFields(4, unzippedPayload, 0);
         int length  =innerHeader.getFieldDataSize();
+        header.processInnerHeaderFields(innerHeader);
         xmlDatabase =new String(Toolbox.copyBytes(unzippedPayload, length, unzippedPayload.length-length), StandardCharsets.UTF_8);
         return valid;
     }

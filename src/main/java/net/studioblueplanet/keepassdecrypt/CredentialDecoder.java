@@ -44,6 +44,10 @@ public class CredentialDecoder
                                           (byte)0x97, (byte)0x20, (byte)0x5D, (byte)0x2A};
 
     private StreamCipher        cipher;
+    private ChaCha20            cipher2;
+    
+    private byte[]              compositeKey;
+    private byte[]              iv;
     
     private List<Credential>    credentials;
                 
@@ -104,7 +108,7 @@ public class CredentialDecoder
                                 String decryptedPassword=null;
                                 if ("True".equals(prot))
                                 {
-                                    credential.password=decryptPassword(passwordString);
+                                    credential.password=decryptPassword(passwordCipher, passwordString);
                                 }
                                 else
                                 {
@@ -151,38 +155,78 @@ public class CredentialDecoder
      */
     private void initDecryption(PasswordCipher passwordCipher, byte[] passwordKey)
     {
-        byte[] compositeKey=new byte[32];
-        
-        
         if (passwordCipher==PasswordCipher.SALSA20)
         {
             cipher = StreamCipherFactory.createCipher("Salsa20");
+            // SHA256(key)
+            try
+            {
+                MessageDigest digest    =MessageDigest.getInstance("SHA-256");
+                compositeKey            =digest.digest(passwordKey);
+                iv                      =IV;
+                // Decryption engine init; must be done once
+                try
+                {
+                    cipher.engineInitDecrypt(compositeKey, iv);
+                }
+                catch (CryptoException e)
+                {
+                    LOGGER.error("Error initializing password decryption {}", e.getMessage());
+                }              
+            }
+            catch (NoSuchAlgorithmException e)
+            {
+                LOGGER.error("Error calculating SHA256 of key: {}", e.getMessage());
+            }
         }
         else if (passwordCipher==PasswordCipher.ARC4)
         {
             cipher = StreamCipherFactory.createCipher("RC4");
+            // SHA256(key)
+            try
+            {
+                MessageDigest digest    =MessageDigest.getInstance("SHA-256");
+                compositeKey            =digest.digest(passwordKey);
+                iv                      =IV;
+                // Decryption engine init; must be done once
+                try
+                {
+                    cipher.engineInitDecrypt(compositeKey, iv);
+                }
+                catch (CryptoException e)
+                {
+                    LOGGER.error("Error initializing password decryption {}", e.getMessage());
+                }              
+            }
+            catch (NoSuchAlgorithmException e)
+            {
+                LOGGER.error("Error calculating SHA256 of key: {}", e.getMessage());
+            }
+        }
+        else if (passwordCipher==PasswordCipher.CHACHA20)
+        {
+            byte[] hash         =Toolbox.sha512(passwordKey);
+            compositeKey        =Toolbox.copyBytes(hash, 0, 32);
+            iv                  =Toolbox.copyBytes(hash, 32, 12);
+            try
+            {
+                cipher2 = new ChaCha20(compositeKey, iv, 0);
+            }
+            catch (ChaCha20.WrongKeySizeException e)
+            {
+                LOGGER.error("Wrong ChaCha20 keysize: {}", e.getMessage());
+            }
+            catch (ChaCha20.WrongNonceSizeException e)
+            {
+                LOGGER.error("Wrong ChaCha20 nonce size: {}", e.getMessage());
+            }
+        }
+        else
+        {
+            LOGGER.error("Unsupported streaming cipher for password decoding");
         }
         
-        // SHA256(key)
-        try
-        {
-            MessageDigest digest    =MessageDigest.getInstance("SHA-256");
-            compositeKey            =digest.digest(passwordKey);
-        }
-        catch (NoSuchAlgorithmException e)
-        {
-            LOGGER.error("Error calculating SHA256 of key: {}", e.getMessage());
-        }   
-
-        // Decryption engine init; must be done once
-        try
-        {
-            cipher.engineInitDecrypt(compositeKey, IV);
-        }
-        catch (CryptoException e)
-        {
-            LOGGER.error("Error initializing password decryption {}", e.getMessage());
-        }        
+ 
     }
     
     
@@ -191,20 +235,31 @@ public class CredentialDecoder
      * @param passwordBase64 Base64 encoded encrypted password
      * @return Decrypted password
      */
-    private String decryptPassword(String passwordBase64)
+    private String decryptPassword(PasswordCipher passwordCipher, String passwordBase64)
     {
         String password     ="";
        
+        
         byte[] decodedBytes = Base64.getDecoder().decode(passwordBase64.getBytes(StandardCharsets.US_ASCII));
-        try
+        if (passwordCipher==PasswordCipher.SALSA20 || passwordCipher==PasswordCipher.ARC4)
         {
-            byte[] decrypted=cipher.crypt(decodedBytes, 0, decodedBytes.length);
-            password=new String(decrypted, StandardCharsets.US_ASCII);
+            try
+            {
+                byte[] decrypted=cipher.crypt(decodedBytes, 0, decodedBytes.length);
+                password        =new String(decrypted, StandardCharsets.US_ASCII);
+            }
+            catch (CryptoException e)
+            {
+                LOGGER.error("Error decrypting password {}", e.getMessage());
+            }
         }
-        catch (CryptoException e)
+        else if (passwordCipher==PasswordCipher.CHACHA20)
         {
-            LOGGER.error("Error decrypting password {}", e.getMessage());
+            byte[] decrypted    =new byte[decodedBytes.length];
+            cipher2.decrypt(decrypted, decodedBytes, decodedBytes.length);
+            password            =new String(decrypted, StandardCharsets.US_ASCII);
         }
+            
         return password;
     }
 }

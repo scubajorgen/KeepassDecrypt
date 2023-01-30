@@ -28,7 +28,8 @@ public class DatabaseHeader
     {
         NO(0x00),
         ARC4(0x01),
-        SALSA20(0x02);
+        SALSA20(0x02),
+        CHACHA20(0x03);
         
         public final int value;
 
@@ -71,6 +72,21 @@ public class DatabaseHeader
         }
     };
 
+    public enum InnerHeaderValueType
+    {
+        ENDOFHEADER             (0x00),
+        RANDOMSTREAMID          (0x01),
+        PASSWORDENCRYPTIONKEY   (0x02),
+        BINARY                  (0x03);
+        public final int value;
+
+        private InnerHeaderValueType(int value)
+        {
+            this.value=value;
+        }
+    };
+    
+    
     private final byte[]        filedata;
     
     private HeaderFields        headerFields;
@@ -210,6 +226,21 @@ public class DatabaseHeader
         {
             passwordCipher      =PasswordCipher.PasswordCipherOfValue(integer.intValue());
         }
+    }
+    
+    /**
+     * Process the inner header in case of KDBX 4. The Inner header is the first
+     * part of the encryted content.
+     * @param innerHeader The decoded inner header
+     */
+    public void processInnerHeaderFields(HeaderFields innerHeader)
+    {
+        passwordEncryptionKey   =innerHeader.getFieldData(InnerHeaderValueType.PASSWORDENCRYPTIONKEY.value);
+        Long integer=innerHeader.getFieldDataAsInteger(InnerHeaderValueType.RANDOMSTREAMID.value);
+        if (integer!=null)
+        {
+            passwordCipher      =PasswordCipher.PasswordCipherOfValue(integer.intValue());
+        }        
     }
     
     /**
