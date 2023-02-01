@@ -106,7 +106,21 @@ public class ChaCha20 {
         }
     }
 
-    public void encrypt(byte[] dst, byte[] src, int len) {
+    public byte[] encrypt(byte[] src, int len)
+    {
+        byte[] dst=new byte[len];
+        encrypt(dst, src, len);
+        return dst;
+    }
+    
+    /**
+     * The encryption method
+     * @param dst Byte array to put the result in; must be an array of length len
+     * @param src Source array
+     * @param len Number of bytes to encrypt
+     */
+    public void encrypt(byte[] dst, byte[] src, int len) 
+    {
         int[] x = new int[16];
         byte[] output = new byte[64];
         int i, dpos = 0, spos = 0;
@@ -146,6 +160,13 @@ public class ChaCha20 {
         }
     }
 
+    public byte[] decrypt(byte[] src, int len)
+    {
+        byte[] dst=new byte[len];
+        encrypt(dst, src, len);
+        return dst;
+    }
+    
     public void decrypt(byte[] dst, byte[] src, int len) {
         encrypt(dst, src, len);
     }

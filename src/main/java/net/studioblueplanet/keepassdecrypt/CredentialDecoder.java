@@ -45,6 +45,7 @@ public class CredentialDecoder
 
     private StreamCipher        cipher;
     private ChaCha20            cipher2;
+    private Salsa20             cipher3;
     
     private byte[]              compositeKey;
     private byte[]              iv;
@@ -157,26 +158,16 @@ public class CredentialDecoder
     {
         if (passwordCipher==PasswordCipher.SALSA20)
         {
-            cipher = StreamCipherFactory.createCipher("Salsa20");
-            // SHA256(key)
+            cipher3=new Salsa20();
+            compositeKey            =Toolbox.sha256(passwordKey);
+            iv                      =IV;
             try
             {
-                MessageDigest digest    =MessageDigest.getInstance("SHA-256");
-                compositeKey            =digest.digest(passwordKey);
-                iv                      =IV;
-                // Decryption engine init; must be done once
-                try
-                {
-                    cipher.engineInitDecrypt(compositeKey, iv);
-                }
-                catch (CryptoException e)
-                {
-                    LOGGER.error("Error initializing password decryption {}", e.getMessage());
-                }              
+                cipher3.engineInitEncrypt(compositeKey, IV);
             }
-            catch (NoSuchAlgorithmException e)
+            catch (Exception e)
             {
-                LOGGER.error("Error calculating SHA256 of key: {}", e.getMessage());
+                LOGGER.error("Error initialising Salsa20 cipher: {}", e.getMessage());
             }
         }
         else if (passwordCipher==PasswordCipher.ARC4)
@@ -238,7 +229,19 @@ public class CredentialDecoder
         String password     ="";
         
         byte[] decodedBytes = Base64.getDecoder().decode(passwordBase64.getBytes(StandardCharsets.US_ASCII));
-        if (passwordCipher==PasswordCipher.SALSA20 || passwordCipher==PasswordCipher.ARC4)
+        if (passwordCipher==PasswordCipher.SALSA20) 
+        {
+            try
+            {
+                byte[] decrypted    =cipher3.crypt(decodedBytes, 0, decodedBytes.length);
+                password            =new String(decrypted, StandardCharsets.US_ASCII);
+            }
+            catch (Exception e)
+            {
+                LOGGER.error("Error initialising Salsa20 cipher: {}", e.getMessage());
+            }            
+        }
+        else if (passwordCipher==PasswordCipher.ARC4)
         {
             try
             {
@@ -252,8 +255,7 @@ public class CredentialDecoder
         }
         else if (passwordCipher==PasswordCipher.CHACHA20)
         {
-            byte[] decrypted    =new byte[decodedBytes.length];
-            cipher2.decrypt(decrypted, decodedBytes, decodedBytes.length);
+            byte[] decrypted    =cipher2.decrypt(decodedBytes, decodedBytes.length);
             password            =new String(decrypted, StandardCharsets.US_ASCII);
         }
         return password;
