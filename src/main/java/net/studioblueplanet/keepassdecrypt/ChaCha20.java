@@ -32,7 +32,10 @@ public class ChaCha20 {
      */
     public static final int NONCE_SIZE_IETF = 12;
 
-    private int[] matrix = new int[16];
+    private final int[]     matrix              = new int[16];
+    private int             firstFreePosition   =0;
+    byte[]                  streamingOutput     = new byte[64];
+
 
 
     protected static int littleEndianToInt(byte[] bs, int i) {
@@ -105,15 +108,86 @@ public class ChaCha20 {
             throw new WrongNonceSizeException();
         }
     }
+    
+    public void resetCounter()
+    {
+        this.matrix[12]=0;
+        this.matrix[13]=0;
+    }
 
+    public byte[] streamingEncrypt(byte[] src, int len)
+    {
+        byte[] dst=new byte[len];
+        streamingEncrypt(dst, src, len);
+        return dst;
+    }
+    
     public byte[] encrypt(byte[] src, int len)
     {
         byte[] dst=new byte[len];
         encrypt(dst, src, len);
         return dst;
     }
-    
+
+
     /**
+     * The encryption method. This is a special variant, in which a byte array to 
+     * encrypt/decrypt can be applied in chunks. In other words:
+     * encrypt[a|b|c] = encrypt[a] | encrypt[b] | encrypt[c]
+     * @param dst Byte array to put the result in; must be an array of length len
+     * @param src Source array
+     * @param len Number of bytes to encrypt
+     */
+    public void streamingEncrypt(byte[] dst, byte[] src, int len) 
+    {
+        int[] x = new int[16];
+        int i, dpos = 0, spos = 0;
+
+        while (len > 0) 
+        {
+            if (firstFreePosition==0)
+            {
+                for (i = 16; i-- > 0; ) x[i] = this.matrix[i];
+                for (i = 20; i > 0; i -= 2) {
+                    quarterRound(x, 0, 4,  8, 12);
+                    quarterRound(x, 1, 5,  9, 13);
+                    quarterRound(x, 2, 6, 10, 14);
+                    quarterRound(x, 3, 7, 11, 15);
+                    quarterRound(x, 0, 5, 10, 15);
+                    quarterRound(x, 1, 6, 11, 12);
+                    quarterRound(x, 2, 7,  8, 13);
+                    quarterRound(x, 3, 4,  9, 14);
+                }
+                for (i = 16; i-- > 0; ) x[i] += this.matrix[i];
+                for (i = 16; i-- > 0; ) intToLittleEndian(x[i], streamingOutput, 4 * i);
+
+                // TODO: (1) check block count 32-bit vs 64-bit; (2) java int is signed!
+                this.matrix[12] += 1;
+                if (this.matrix[12] == 0) {
+                    this.matrix[13] += 1;
+                }
+            }
+            if (len <= 64-firstFreePosition) 
+            {
+                for (i = len; i-- > 0; ) 
+                {
+                    dst[i + dpos] = (byte) (src[i + spos] ^ streamingOutput[i+firstFreePosition]);
+                }
+                firstFreePosition+=len;
+                return;
+            }
+            for (i = 64-firstFreePosition; i-- > 0; ) 
+            {
+                dst[i + dpos] = (byte) (src[i + spos] ^ streamingOutput[i+firstFreePosition]);
+            }
+            len -= 64-firstFreePosition;
+            spos += 64-firstFreePosition;
+            dpos += 64-firstFreePosition;
+            firstFreePosition=0;
+        }
+    }
+
+        /**
      * The encryption method
      * @param dst Byte array to put the result in; must be an array of length len
      * @param src Source array
@@ -125,7 +199,8 @@ public class ChaCha20 {
         byte[] output = new byte[64];
         int i, dpos = 0, spos = 0;
 
-        while (len > 0) {
+        while (len > 0) 
+        {
             for (i = 16; i-- > 0; ) x[i] = this.matrix[i];
             for (i = 20; i > 0; i -= 2) {
                 quarterRound(x, 0, 4,  8, 12);
@@ -145,19 +220,35 @@ public class ChaCha20 {
             if (this.matrix[12] == 0) {
                 this.matrix[13] += 1;
             }
-            if (len <= 64) {
-                for (i = len; i-- > 0; ) {
+            if (len <= 64) 
+            {
+                for (i = len; i-- > 0; ) 
+                {
                     dst[i + dpos] = (byte) (src[i + spos] ^ output[i]);
                 }
                 return;
             }
-            for (i = 64; i-- > 0; ) {
+            for (i = 64; i-- > 0; ) 
+            {
                 dst[i + dpos] = (byte) (src[i + spos] ^ output[i]);
             }
             len -= 64;
             spos += 64;
             dpos += 64;
         }
+    }
+
+    
+    
+    public byte[] streamingDecrypt(byte[] src, int len)
+    {
+        byte[] dst=new byte[len];
+        streamingEncrypt(dst, src, len);
+        return dst;
+    }
+    
+    public void streamingDecrypt(byte[] dst, byte[] src, int len) {
+        streamingEncrypt(dst, src, len);
     }
 
     public byte[] decrypt(byte[] src, int len)

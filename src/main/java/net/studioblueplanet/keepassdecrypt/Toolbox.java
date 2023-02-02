@@ -138,6 +138,7 @@ public class Toolbox
 
     /**
      * Converts bytes to int
+     * @param source Input byte array
      * @param index Index in the array of the bytes to convert
      * @param length Number of bytes to convert, max 8
      * @return The integer
@@ -160,8 +161,10 @@ public class Toolbox
     
     /** 
      * Allocates space and copies bytes from the file data
+     * @param source Input byte array
      * @param index Index in file data
      * @param length Number of bytes to copy
+     * @return Array with copied bytes
      */
     public static byte[] copyBytes(byte[] source, int index, int length)
     {

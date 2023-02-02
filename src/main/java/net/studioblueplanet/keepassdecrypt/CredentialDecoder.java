@@ -255,7 +255,7 @@ public class CredentialDecoder
         }
         else if (passwordCipher==PasswordCipher.CHACHA20)
         {
-            byte[] decrypted    =cipher2.decrypt(decodedBytes, decodedBytes.length);
+            byte[] decrypted    =cipher2.streamingDecrypt(decodedBytes, decodedBytes.length);
             password            =new String(decrypted, StandardCharsets.US_ASCII);
         }
         return password;

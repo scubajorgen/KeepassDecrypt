@@ -59,7 +59,10 @@ public class DatabaseDecrypter3 extends DatabaseDecrypterBase
     }
     
   
-    
+    /**
+     * Return the XML database as a string
+     * @return The XML as string
+     */
     public String getXmlDatabase()
     {
         return this.xmlDatabase;
@@ -67,7 +70,9 @@ public class DatabaseDecrypter3 extends DatabaseDecrypterBase
 
     /**
      * This method tries a password. It checks whether it results in
-     * properly decrypted data
+     * properly decrypted data. For version 3 the payload must be decrypted.
+     * The 1st 32 decrypted bytes must correspond to the streamStartBytes
+     * in the header
      * @param password Password to test
      * @return True if the password is valid, false if not
      */
@@ -89,8 +94,8 @@ public class DatabaseDecrypter3 extends DatabaseDecrypterBase
     }  
     
     /**
-     * Validate the decryption result by checking it with the unencrypted start bytes
-     * in the header. 
+     * Validate the decryption result by checking it with the unencrypted 
+     * start bytes in the header (streamStartBytes). 
      * @return True if valid.
      */
     protected boolean validateDecryption()
@@ -109,7 +114,7 @@ public class DatabaseDecrypter3 extends DatabaseDecrypterBase
     }
 
     /**
-     * The payload before decompression consists is subdivided in blocks.
+     * The payload after decryption, prior to unzipping is subdivided in blocks.
      * The hash of the blocks is tested and the blocks are glued together
      */
     private boolean deblockify()
@@ -122,6 +127,7 @@ public class DatabaseDecrypter3 extends DatabaseDecrypterBase
         databaseBlocks=Toolbox.copyBytes(decryptedPayload, streamStartBytes.length, decryptedPayload.length-streamStartBytes.length);
         LOGGER.debug("Blocks length    {}", databaseBlocks.length);        
         
+        // calculate total payload size
         index=0;
         totalSize=0;
         while (index<databaseBlocks.length)
@@ -136,6 +142,7 @@ public class DatabaseDecrypter3 extends DatabaseDecrypterBase
             index+=size;
         }
         
+        // Validate blocks and concatenate
         zippedDatabase=new byte[totalSize];
         index=0;
         totalSize=0;

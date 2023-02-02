@@ -117,9 +117,6 @@ public class KeepassDatabase
         return header.getPasswordEncryptionKey();
     }
     
-    
-
-    
     /**
      * Show the header info
      */
