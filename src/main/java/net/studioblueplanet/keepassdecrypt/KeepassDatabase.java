@@ -23,15 +23,11 @@ public class KeepassDatabase
     
     private DatabaseHeader      header;
     private DatabaseDecrypter   decrypter;
-
         
     // Intermediate and final process result
     private byte[]              filedata;               // raw file bytes
     private byte[]              encryptedDatabase;      // The part of the file containing the database data
 
-    
-    
-            
     /**
      * Constructor. Reads and parses the information in the kdbx file
      * @param filename Filename of the kdbx file

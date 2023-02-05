@@ -162,10 +162,6 @@ public class DatabaseDecrypter4 extends DatabaseDecrypterBase
                 byte[] lengthBytes      =Toolbox.intToBytes(length, 4);
                 byte[] blockConcat      =Toolbox.concatenate(sequenceNumber, lengthBytes);
                 blockConcat             =Toolbox.concatenate(blockConcat, encryptedPayload);
-
-/*
-                byte[] blockHmacKey     =Toolbox.sha512(Toolbox.concatenate(sequenceNumber, pbHmacKey));            
-*/  
                 byte[] blockHmacKey     =getHmacKey(i, pbHmacKey);
                 valid=Toolbox.validateHmacSha256Hash(blockConcat, blockHmacKey, hash);
             }
@@ -174,8 +170,6 @@ public class DatabaseDecrypter4 extends DatabaseDecrypterBase
         return valid;
     }
     
-
-
     /**
      * Now the payload has been decrypted, remove the inner header. Then
      * convert the rest to a database XML string

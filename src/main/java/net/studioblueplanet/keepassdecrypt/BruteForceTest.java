@@ -81,7 +81,6 @@ public class BruteForceTest
             {
                 found=attack(password, chars-1);
             }
-
         }
         return found;
     }

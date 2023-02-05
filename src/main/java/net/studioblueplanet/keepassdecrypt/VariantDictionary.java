@@ -127,7 +127,7 @@ public class VariantDictionary
 
         public String getValueAsByteString()
         {
-            if (type!=ValueType.STRING)
+            if (type!=ValueType.BYTEARRAY)
             {
                 LOGGER.error("Illegal value request");
             }

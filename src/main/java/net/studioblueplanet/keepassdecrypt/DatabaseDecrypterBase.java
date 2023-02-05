@@ -17,10 +17,11 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
+import org.bouncycastle.crypto.generators.Argon2BytesGenerator;
+import org.bouncycastle.crypto.params.Argon2Parameters;
 
 /**
- *
+ * The methods that are applicable for KDBX 3.x and 4.x
  * @author jorgen
  */
 public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
@@ -44,52 +45,86 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
         this.filePayload        =encryptedDatabase;        
     }    
 
-  
+    /**
+     * Return the XML database as a string
+     * @return The XML as string
+     */
+    @Override
+    public String getXmlDatabase()
+    {
+        return this.xmlDatabase;
+    }  
     
+    /**
+     * Based on the users password, create the transformed key and the 
+     * master key. Note: this assumes only a password, not an windows account
+     * and key from a keyfile.
+     * @param password password
+     * @return True if all went well
+     */
     protected boolean generateMasterKey(String password)
     {
-        boolean     valid;
+        byte[] compositeKey;
+        boolean valid=false;
         
-        valid=true;       
-        valid=generateMasterKeyAes(password);
+        // Generate compsitekey
+        compositeKey    =Toolbox.sha256(password.getBytes(StandardCharsets.UTF_8));
+        compositeKey    =Toolbox.sha256(compositeKey);
+
+        // Generate the transformed key
+        if (header.getKdfCipher()==null || header.getKdfCipher()==DatabaseHeader.Cipher.AESECB)
+        {
+            valid=transformAes(compositeKey);
+        }
+        else if (header.getKdfCipher()==DatabaseHeader.Cipher.ARGON2D)
+        {
+            valid=transformArgon(compositeKey, "d");
+        }
+        else if (header.getKdfCipher()==DatabaseHeader.Cipher.ARGON2ID)
+        {
+            valid=transformArgon(compositeKey, "id");
+        }
+        else
+        {
+            LOGGER.error("Unsupported KDF cipher");
+        }        
+        LOGGER.debug("Transformed Key    : {}", Toolbox.bytesToString(transformedKey));
+
+        // Generate the master key
+        byte[] masterSeed=header.getMasterSeed();
+        byte[] c = new byte[masterSeed.length + transformedKey.length];
+        System.arraycopy(masterSeed    , 0, c, 0                , masterSeed.length    );
+        System.arraycopy(transformedKey, 0, c, masterSeed.length, transformedKey.length);            
+        masterKey=Toolbox.sha256(c);
+        LOGGER.debug("Master Key         : {}", Toolbox.bytesToString(masterKey));
 
         return valid;
     }
     
-    
-    /** 
-     * Generate the master decryption/encryption key based on the password
-     * @param password Password
+    /**
+     * Transform the composite key based on a number of AES ECB rounds using
+     * the transform seed as key
+     * @param key The key to transform
+     * @return True if all went well
      */
-    private boolean generateMasterKeyAes(String password)
+    private boolean transformAes(byte[] key)
     {
         boolean valid;
         valid=false;
         try
         {
-            byte[] compositeKey=Toolbox.sha256(password.getBytes(StandardCharsets.UTF_8));
-            compositeKey=Toolbox.sha256(compositeKey);
-
             Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
-            SecretKeySpec key=new SecretKeySpec(header.getKdfTransformSeed(), "AES");
-            cipher.init(Cipher.ENCRYPT_MODE, key);
+            SecretKeySpec keySpec=new SecretKeySpec(header.getKdfTransformSeed(), "AES");
+            cipher.init(Cipher.ENCRYPT_MODE, keySpec);
 
-            transformedKey=compositeKey;
+            transformedKey=key;
             LOGGER.debug("Transformed Key    : {}", Toolbox.bytesToString(transformedKey));
             for (int i=0; i<header.getKdfTransformRounds(); i++)
             {
                 transformedKey=cipher.doFinal(transformedKey);
             }
             transformedKey=Toolbox.sha256(transformedKey);
-            LOGGER.debug("Transformed Key    : {}", Toolbox.bytesToString(transformedKey));
-            
-            byte[] masterSeed=header.getMasterSeed();
-            byte[] c = new byte[masterSeed.length + transformedKey.length];
-            System.arraycopy(masterSeed    , 0, c, 0                , masterSeed.length    );
-            System.arraycopy(transformedKey, 0, c, masterSeed.length, transformedKey.length);            
-           
-            masterKey=Toolbox.sha256(c);
-            LOGGER.debug("Master Key         : {}", Toolbox.bytesToString(masterKey));
+
             valid=true;
         }
         catch (NoSuchAlgorithmException e)
@@ -111,25 +146,73 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
         catch (BadPaddingException e)
         {
             LOGGER.error("Error generating keys : Bad Padding: {}", e.getMessage());
-        }
+        }     
         return valid;
     }
     
-    public String getXmlDatabase()
+    /**
+     * Transform the composite key based on the argon algorithms
+     * @param key The key to transform
+     * @return True if all went well
+     */
+    private boolean transformArgon(byte[] key, String argonType)
     {
-        return this.xmlDatabase;
+        boolean valid=true;
+
+        int memory      =(int)(header.getKdfMemorySize()/1024L);
+        int iterations  =(int)header.getKdfIterations();
+        int parallelism =header.getKdfParallelism();
+        int version     =header.getKdfVersion();
+        String seed     =new String(header.getKdfTransformSeed());
+        
+        int param;
+        if (argonType.equals("d"))
+        {
+            param=Argon2Parameters.ARGON2_d;
+        }
+        else if (argonType.equals("i"))
+        {
+            param=Argon2Parameters.ARGON2_i;
+        }
+        else
+        {
+            param=Argon2Parameters.ARGON2_id;
+        }
+/*
+        // First try, password4j: does not work with rawnbyte arrays!!!
+        Argon2Function cipher=Argon2Function.getInstance(memory, iterations, parallelism, 32, Argon2.D, version);
+        com.password4j.Hash hash=cipher.hash(new String(compositeKey), seed);
+        transformedKey=hash.getBytes();
+*/
+
+        // bouncy castle
+        Argon2Parameters params = new Argon2Parameters.Builder(param).
+                        withSalt(seed.getBytes()).
+                        withParallelism(parallelism).
+                        withMemoryAsKB(memory).
+                        withIterations(iterations).
+                        build();
+        Argon2BytesGenerator generator = new Argon2BytesGenerator();
+        generator.init(params);
+        transformedKey = new byte[32];
+        generator.generateBytes(key, transformedKey);  
+        return valid;
     }    
 
-  
+    /**
+     * Decrypt the payload
+     * @param payload Payload to decrypt
+     * @return True if successful, false if not
+     */
     protected boolean decryptPayload(byte[] payload)
     {
         boolean valid=true;
         
-        if (Toolbox.bytesToString(header.getCipherUuid()).equals(DatabaseHeader.UUID_AESCBC))
+        if (header.getPayloadCipher()==DatabaseHeader.Cipher.AESCBC)
         {
             valid=decryptPayloadAes(payload);
         }
-        else if (Toolbox.bytesToString(header.getCipherUuid()).equals(DatabaseHeader.UUID_CHACHA20))
+        else if (header.getPayloadCipher()==DatabaseHeader.Cipher.CHACHA20)
         {
             valid=decryptPayloadChaCha(payload);
         }           
@@ -143,6 +226,8 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
     
     /**
      * Decrypt the database using Aes and the master key
+     * @param payload Payload to decrypt
+     * @return True if successful, false if not
      */
     private boolean decryptPayloadAes(byte[] payload)
     {
@@ -193,6 +278,8 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
 
     /**
      * Decrypt the database using ChaCha and the master key
+     * @param payload Payload to decrypt
+     * @return True if successful, false if not
      */
     private boolean decryptPayloadChaCha(byte[] payload)
     {

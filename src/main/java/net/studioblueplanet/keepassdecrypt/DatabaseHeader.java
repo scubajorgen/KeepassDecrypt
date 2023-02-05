@@ -15,16 +15,11 @@ import org.apache.logging.log4j.Logger;
 public class DatabaseHeader
 {
     private final static Logger LOGGER      = LogManager.getLogger(DatabaseHeader.class);
-    
-    public static final String UUID_AESCBC     ="31c1f2e6bf714350be5805216afc5aff";
-    public static final String UUID_TWOFISH    ="";
-    public static final String UUID_CHACHA20   ="d6038a2b8b6f4cb5a524339a31dbb59a";
-
-    public static final String UUID_AESECB     ="c9d9f39a628a4460bf740d08c18a4fea";
-    public static final String UUID_ARGON2D    ="ef636ddf8c29444b91f7a9a403e30a0c";
-    public static final String UUID_ARGON2ID   ="9e298b1956db4773b23dfc3ec6f0a1e6";
-    
-    public enum PasswordCipher
+  
+    /**
+     * The cipher used for the inner passwords
+     */
+    public static enum PasswordCipher
     {
         NO(0x00),
         ARC4(0x01),
@@ -49,6 +44,36 @@ public class DatabaseHeader
             }
             return null;
         }
+    }
+    
+    public static enum Cipher
+    {
+        UNKNOWN(""),
+        AESCBC("31c1f2e6bf714350be5805216afc5aff"),
+        TWOFISH("not supported"),
+        CHACHA20("d6038a2b8b6f4cb5a524339a31dbb59a"),
+        AESECB("c9d9f39a628a4460bf740d08c18a4fea"),
+        ARGON2D("ef636ddf8c29444b91f7a9a403e30a0c"),
+        ARGON2ID("9e298b1956db4773b23dfc3ec6f0a1e6");
+        
+        public final String value;
+
+        private Cipher(String value)
+        {
+            this.value=value;
+        }
+
+        public static Cipher CipherFromUuid(String value) 
+        {
+            for (Cipher v : values()) 
+            {
+                if (v.value.equals(value.toLowerCase())) 
+                {
+                    return v;
+                }
+            }
+            return null;
+        }        
     }
     
     public enum ValueType
@@ -91,7 +116,8 @@ public class DatabaseHeader
     
     private HeaderFields        headerFields;
     // Header fields
-    private byte[]              cipherUuid;
+    private String              cipherUuid;
+    private Cipher              payloadCipher;
     private byte[]              masterSeed;
     private byte[]              encryptionIv;
     private Long                transformRounds;
@@ -113,12 +139,15 @@ public class DatabaseHeader
     private VariantDictionary   dictionary;
     
     private String              kdfUuid;            // $UUID
+    private Cipher              kdfCipher;          // The $UUID as cipher
     private Long                kdfTransformRounds; // R
     private byte[]              kdfTransformSeed;   // S
     private Long                kdfIterations;      // I
     private Long                kdfMemorySize;      // M  in bytes
     private Integer             kdfParallelism;     // P
-    private Integer             kdfV;               // V
+    private Integer             kdfVersion;         // V
+    private byte[]              kdfTransformKey;    // K
+                                                    // A
          
     private byte[]              headerHash;
     private byte[]              hmacHeaderHash;
@@ -129,6 +158,7 @@ public class DatabaseHeader
      */
     public DatabaseHeader(byte[] headerData)
     {
+        kdfCipher=Cipher.AESECB; // Default value for KDBX 3.x
         this.filedata=headerData;
         parseData(false);
     }
@@ -209,7 +239,12 @@ public class DatabaseHeader
     private void processHeaderFields()
     {
         Long        integer;
-        cipherUuid              =headerFields.getFieldData(ValueType.CIPHERUUID.value);
+        byte[] cipherUuidBytes  =headerFields.getFieldData(ValueType.CIPHERUUID.value);
+        if (cipherUuidBytes!=null)
+        {
+            cipherUuid   =Toolbox.bytesToString(cipherUuidBytes);
+            payloadCipher=Cipher.CipherFromUuid(cipherUuid);
+        }
         masterSeed              =headerFields.getFieldData(ValueType.MASTERSEED.value);
         transformSeed           =headerFields.getFieldData(ValueType.KDFTRANSFORMSEED.value);
         kdfTransformSeed        =transformSeed;
@@ -220,6 +255,7 @@ public class DatabaseHeader
         endOfHeader             =headerFields.getFieldData(ValueType.ENDOFHEADER.value);
         compressionFlags        =headerFields.getFieldDataAsInteger(ValueType.COMPRESSIONFLAGS.value);
         passwordEncryptionKey   =headerFields.getFieldData(ValueType.PASSWORDENCRYPTIONKEY.value);
+        
 
         integer=headerFields.getFieldDataAsInteger(ValueType.RANDOMSTREAMID.value);
         if (integer!=null)
@@ -263,7 +299,7 @@ public class DatabaseHeader
         LOGGER.info("Header Signature 1   : {}", String.format("%x", signature1));
         LOGGER.info("Header Signature 2   : {}", String.format("%x", signature2));
         LOGGER.info("KDBX Version         : {}.{}", kdbxMajorVersion, kdbxMinorVersion);
-        LOGGER.info("2 Cipher UUID        : {}", Toolbox.bytesToString(cipherUuid));
+        LOGGER.info("2 Cipher UUID        : {} ({})", cipherUuid, payloadCipher);
         LOGGER.info("3 Compression flags  : {}", compressionFlags);
         LOGGER.info("4 Master Seed        : {}", Toolbox.bytesToString(masterSeed));
         LOGGER.info("5 Transform Seed     : {}", Toolbox.bytesToString(transformSeed));
@@ -277,13 +313,13 @@ public class DatabaseHeader
         if (dictionary!=null)
         {
             LOGGER.info("KDF PARAMETERS (VERSION 4)");
-            LOGGER.info("KDF cipher UUID      : {}", kdfUuid);
+            LOGGER.info("KDF cipher UUID      : {} - ({})", kdfUuid, kdfCipher);
             LOGGER.info("KDF Transform rounds : {}", kdfTransformRounds);
             LOGGER.info("KDF Transform seed   : {}", Toolbox.bytesToString(kdfTransformSeed));
             LOGGER.info("KDF Iterations       : {}", kdfIterations);
             LOGGER.info("KDF Parallelism      : {}", kdfParallelism);
             LOGGER.info("KDF mem size         : {}", kdfMemorySize);
-            LOGGER.info("KDF V                : {}", kdfV);
+            LOGGER.info("KDF Version          : {}", String.format("0x%x", kdfVersion));
         }
     }    
     
@@ -296,23 +332,27 @@ public class DatabaseHeader
         dictionary  =new VariantDictionary(kdfParameters);     
         kdfUuid     =dictionary.getValueAsByteString("$UUID");
         
-        if (UUID_AESECB.equals(kdfUuid))
+        if (kdfUuid!=null)
         {
-            kdfTransformRounds      =dictionary.getValueAsLong("R");
-            kdfTransformSeed        =dictionary.getValueAsByteArray("S");
-        }
-        else if (UUID_ARGON2D.equals(kdfUuid)  || UUID_ARGON2ID.equals(kdfUuid))
-        {
-            kdfIterations           =dictionary.getValueAsLong("I");
-            kdfMemorySize           =dictionary.getValueAsLong("M");
-            kdfParallelism          =dictionary.getValueAsInt("P");
-            kdfV                    =dictionary.getValueAsInt("V");
-            kdfTransformSeed        =dictionary.getValueAsByteArray("S");
+            kdfCipher=Cipher.CipherFromUuid(kdfUuid);
+            if (kdfCipher==Cipher.AESECB)
+            {
+                kdfTransformRounds      =dictionary.getValueAsLong("R");
+                kdfTransformSeed        =dictionary.getValueAsByteArray("S");
+            }
+            else if (kdfCipher==Cipher.ARGON2D  || kdfCipher==Cipher.ARGON2ID)
+            {
+                kdfIterations           =dictionary.getValueAsLong("I");
+                kdfMemorySize           =dictionary.getValueAsLong("M");
+                kdfParallelism          =dictionary.getValueAsInt("P");
+                kdfVersion              =dictionary.getValueAsInt("V");
+                kdfTransformSeed        =dictionary.getValueAsByteArray("S");
+            }
         }
     }
 
 
-    public byte[] getCipherUuid()
+    public String getCipherUuid()
     {
         return cipherUuid;
     }
@@ -417,9 +457,9 @@ public class DatabaseHeader
         return kdfParallelism;
     }
 
-    public int getKdfV()
+    public int getKdfVersion()
     {
-        return kdfV;
+        return kdfVersion;
     }
 
     public byte[] getHmacHeaderHash()
@@ -431,5 +471,15 @@ public class DatabaseHeader
     {
         return filedata;
     }
-    
+
+    public Cipher getPayloadCipher()
+    {
+        return payloadCipher;
+    }
+
+    public Cipher getKdfCipher()
+    {
+        return kdfCipher;
+    }
+
 }

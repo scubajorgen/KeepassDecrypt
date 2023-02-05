@@ -16,15 +16,23 @@ import org.apache.logging.log4j.Logger;
 public class Main
 {
     private final static Logger LOGGER = LogManager.getLogger(Main.class);
-    public static void main(String[] args)
+    
+    
+    /**
+     * Demo of decryption
+     * @param file File name of kdbx file
+     * @param password Password of kdbx file
+     * @param title Some title to display
+     */
+    public static void demoDecryption(String file, String password, String title)
     {
-        // DATABASE DECRYPTION
-        LOGGER.info("Starting database decryption");
-        KeepassDatabase base=new KeepassDatabase("test_8charspassword.kdbx");
-        String xml=base.decryptDatabase("testtest");
+        LOGGER.info("#################################################################################");
+        LOGGER.info("# {}", title);
+        LOGGER.info("#################################################################################");
+        KeepassDatabase base    =new KeepassDatabase(file);
+        String xml              =base.decryptDatabase(password);
         base.dumpData();
-        LOGGER.info("Decryption result:\n{}", xml);
-        
+        LOGGER.info("Decryption result:\n{}", xml);        
         // CREDENTIAL PASSWORD DECRYPTION
         CredentialDecoder decoder=new CredentialDecoder(xml, base.getPasswordEncryption(), base.getPasswordEncryptionKey());
         
@@ -32,14 +40,34 @@ public class Main
         {
             LOGGER.info("Credential for entry '{}': username '{}' password '{}'", c.title, c.username, c.password);
         }
-       
-        // BRUTE FORCE TEST
+    }
+    
+    /**
+     * Brute force password testing
+     */
+    public static void demoBruteForce()
+    {
+        LOGGER.info("#################################################################################");
+        LOGGER.info("# BRUTE FORCE TEST");
+        LOGGER.info("#################################################################################");
         BruteForceTest test=new BruteForceTest("test_3charspassword.kdbx");
         long start = System.currentTimeMillis();
         test.execute(5);
         long end = System.currentTimeMillis();
         long elapsedTime = (end - start)/1000;
-        LOGGER.info("It took {} seconds", elapsedTime);
-        
+        LOGGER.info("It took {} seconds", elapsedTime);        
+    }
+
+    /**
+     * Main function
+     * @param args Not used
+     */
+    public static void main(String[] args)
+    {
+        // DATABASE DECRYPTION
+        demoDecryption("test_8charspassword.kdbx"   , "testtest", "DECRYPT KDBX 3.1");
+        demoDecryption("test_chacha.kdbx"           , "test"    , "DECRYPT KDBX 4.0 - main: Chacha20 key generation: AES EBC");
+        demoDecryption("test_chacha_argon2id.kdbx"  , "test"    , "DECRYPT KDBX 4.0 - main: Chacha20 key generation: ARGON2ID");
+        demoBruteForce();
     }
 }

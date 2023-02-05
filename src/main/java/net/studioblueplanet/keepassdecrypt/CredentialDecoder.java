@@ -24,7 +24,6 @@ import org.rzo.netty.ahessian.crypto.CryptoException;
 import org.rzo.netty.ahessian.crypto.StreamCipher;
 import org.rzo.netty.ahessian.crypto.StreamCipherFactory;
 
-
 /**
  * Represents a set of credentials as present in the Keepass database.
  * It just parses each credential, omitting the groups and details

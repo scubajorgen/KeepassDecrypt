@@ -57,17 +57,7 @@ public class DatabaseDecrypter3 extends DatabaseDecrypterBase
         }
         return xmlDatabase;
     }
-    
   
-    /**
-     * Return the XML database as a string
-     * @return The XML as string
-     */
-    public String getXmlDatabase()
-    {
-        return this.xmlDatabase;
-    }
-
     /**
      * This method tries a password. It checks whether it results in
      * properly decrypted data. For version 3 the payload must be decrypted.
@@ -142,7 +132,7 @@ public class DatabaseDecrypter3 extends DatabaseDecrypterBase
             index+=size;
         }
         
-        // Validate blocks and concatenate
+        // Validate blocks and concatenate them
         zippedDatabase=new byte[totalSize];
         index=0;
         totalSize=0;
