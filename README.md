@@ -90,11 +90,6 @@ Note that if the Key from keyfile is not present, only the Master Password is pr
 
 Using the brute force method enclosed it takes 3 minutes to brute force a 3 character password 'tst' on a Core I5 2.4 GHz. This time rapidly increases with the number of characters.
 
-In version 4 Argon2d and Argon2id have been added as algorithms for transformation of the password. These algorithms have been designed to better withstand brute force attacks. The process is slightly different:
-
-![](image/process4.png)
-
-
 ### Decrypting the file
 This is done using AES/CBC/PKCS5Padding, which is a sensible method and best practice. It requires the generated key and an initialisation vector which is in the header of the .kdbx file.
 
@@ -142,7 +137,22 @@ or in code (```DatabaseDecrypter4``` class)
 The header has basically the same format as the 3.x KDBX, however a field has been added containing a encoded KDF variant library, which contains paramaeters for the key generation.
 
 ### Generating the master key
-Basically the same as for KDBX 3.1, however more Key Derivation Functions (KDF) have been added: Argon2d and Argon2id encryption methods next to the AES. In the header a new field (11) has been added containing the parameters for these KDFs. 
+Basically the same as for KDBX 3.1, however more *Key Derivation Functions* (KDFs) or 'transform' functinos have been added: [Argon2d and Argon2id](https://en.wikipedia.org/wiki/Argon2) encryption methods next to the AES. These algorithms have been designed to better withstand brute force attacks, because they require significant resources (memory) from the system. In the header a new field (11) has been added containing the parameters for these KDFs in a 'variant dictionary'. 
+
+![](image/process4.png)
+
+### Validate the header and block hashes
+The SHA256 hash of the header can simply be calculated and verified by calculating the SHA256 hash of the header (all preceding the SHA256 hash).
+
+The HMAC SHA256 hash of the header and blocks takes some more processing
+
+1. The HMAC base key is calculated based on the transformed key
+1. The HMAC key to use for HMAC SHA256 is derived from this HMAC base key by concatenating it to an index value and taking the SHA512. For the header it is 0xFFFFFFFF, for the block it is the block index (first block has index 0, the next 1, etc)
+1. The HMAC SHA256 is calculated over the header/block bytes using the HMAC key.
+
+The process is depicted below.
+
+![](image/hmacsha256.png)
 
 ### Validate and merge blocks
 In KDBX 4 the blocks contain encrypted payload. The HMAC SHA256 hash of the blocks can be validated prior to decryption.
