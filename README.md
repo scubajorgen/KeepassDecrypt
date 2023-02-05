@@ -4,31 +4,39 @@ I use [KeePass](https://keepass.info/) for some time now for storing my credenti
 
 This small, quick and dirty Java application demostrates the methods KeePass uses to encrypt and decrypt your credentials. It is meant to study the security of KeePass. [This excellent site](https://gist.github.com/lgg/e6ccc6e212d18dd2ecd8a8c116fb1e45) was used as starting point and studying of the [source code of Keepass on github](https://github.com/dlech/KeePass2.x/tree/VS2022/KeePassLib/Cryptography).
 
-The program shows the decrypted content of a small, enclosed Keepass database, which is an XML file.
+The program shows the decrypted content of a small, enclosed Keepass databases (kdbx 3 as well as kdbx 4), which is an XML file.
 
 In the XML file the password fields are encrypted at a second level. The software extracts the entries and show the title, username and decrypted password.
 
-Then it tries to brute force the test_3charspassword.kdbx database using a quick and dirty and certainly inefficient algorithm.
+Then it tries to brute force the test_3charspassword.kdbx database using a quick and dirty and certainly inefficient algorithm (if you are interested, use John the Ripper).
 
-This applies to version .kdbx 3.1 and * [.kdbx 4.0](https://keepass.info/help/kb/kdbx_4.html)  formats. The .kdbx 4 format differs from the .kdbx 3.x format. For KDBX 4, refer to to the unit tests.
+This software applies to version .kdbx 3.1 and * [.kdbx 4.0](https://keepass.info/help/kb/kdbx_4.html)  formats. The .kdbx 4 format differs from the .kdbx 3.x format. For testing of various used protocols, refer to to the unit tests.
 
 Out of scope:
 * .kdb files (older format)
+* XML parsing (the software is purely meant to show the decryption process)
+* Encryption
 
 ## Test databases
 Three KeePass testdatabases for testing are enclosed:
 * test_8charspassword.kdbx, password 'testtest'
 * test_4charspassword.kdbx, password 'test'
 * test_3charspassword.kdbx, password 'tst'
+* test_chacha.kdbx, password 'test'
+* test_chacha_argon2id.kdbx, password 'test'
+
+In the test resources you'll find more examples.
 
 Of course you can open them in KeePass.
 
 A database file consists of a **header** and a **payload**. The header defines the parameters used for decryption, the payload is the encrypted and wrapped up XML database containing your credentials.
 
 ## Processing the kdbx 3.x database
+A KDBX database file consists of a **header** and a **payload**. The header defines the parameters used for decryption, the payload is the encrypted and wrapped up XML database containing your credentials.
+
 Keepass executes following steps to decrypt the Password database 3.x:
 1. Generate the **master key** from the passwords or keys entered by the user.
-1. **Decrypt** the file content. This results in content in the form of blocks.
+1. **Decrypt** the file content. This results in (decrypted) content in the form of blocks.
 1. Validate the hash of the **blocks** and merge them to payload
 1. Optionally: **Decompress** the payload
 
@@ -78,16 +86,21 @@ The only advantage I see, that it takes some time to execute this generation whi
 
 ![](image/process.png)
 
-Note that if the Key from keyfile is not present, only the Master Password is processed.
+Note that if the Key from keyfile is not present, only the Master Password is processed. This software only assumes a password.
 
 Using the brute force method enclosed it takes 3 minutes to brute force a 3 character password 'tst' on a Core I5 2.4 GHz. This time rapidly increases with the number of characters.
+
+In version 4 Argon2d and Argon2id have been added as algorithms for transformation of the password. These algorithms have been designed to better withstand brute force attacks. The process is slightly different:
+
+![](image/process4.png)
+
 
 ### Decrypting the file
 This is done using AES/CBC/PKCS5Padding, which is a sensible method and best practice. It requires the generated key and an initialisation vector which is in the header of the .kdbx file.
 
 ### Convert blocks to payload
 The decrypted file consists of numbered blocks with a SHA256 hash. Blocks have to be unwrapped, hash validated and glued together to get the GZIP compressed content.
-Note that the blocks are precededed with a string of 32 random bytes that are also present in the header. Using this sequence you can validate that decryption has succeeded.
+Note that the blocks are precededed with a string of 32 random bytes (check bytes) that are also present (unencrypted) in the header. Using this sequence you can validate that decryption has succeeded by comparing these bytes to the bytes in the header.
 
 ### Decompress the payload
 To get to the XML one optional step remains: unzipping the payload.
