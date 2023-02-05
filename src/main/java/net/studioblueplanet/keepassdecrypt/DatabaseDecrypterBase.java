@@ -17,8 +17,6 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.bouncycastle.crypto.generators.Argon2BytesGenerator;
-import org.bouncycastle.crypto.params.Argon2Parameters;
 
 /**
  * The methods that are applicable for KDBX 3.x and 4.x
@@ -163,39 +161,25 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
         int iterations  =(int)header.getKdfIterations();
         int parallelism =header.getKdfParallelism();
         int version     =header.getKdfVersion();
-        String seed     =new String(header.getKdfTransformSeed());
         
-        int param;
+        Argon2Function.Argon2 param;
         if (argonType.equals("d"))
         {
-            param=Argon2Parameters.ARGON2_d;
+            param=Argon2Function.Argon2.D;
         }
         else if (argonType.equals("i"))
         {
-            param=Argon2Parameters.ARGON2_i;
+            param=Argon2Function.Argon2.I;
         }
         else
         {
-            param=Argon2Parameters.ARGON2_id;
+            param=Argon2Function.Argon2.ID;
         }
-/*
-        // First try, password4j: does not work with rawnbyte arrays!!!
-        Argon2Function cipher=Argon2Function.getInstance(memory, iterations, parallelism, 32, Argon2.D, version);
-        com.password4j.Hash hash=cipher.hash(new String(compositeKey), seed);
-        transformedKey=hash.getBytes();
-*/
 
-        // bouncy castle
-        Argon2Parameters params = new Argon2Parameters.Builder(param).
-                        withSalt(seed.getBytes()).
-                        withParallelism(parallelism).
-                        withMemoryAsKB(memory).
-                        withIterations(iterations).
-                        build();
-        Argon2BytesGenerator generator = new Argon2BytesGenerator();
-        generator.init(params);
-        transformedKey = new byte[32];
-        generator.generateBytes(key, transformedKey);  
+        // First try, password4j: does not work with rawnbyte arrays!!!
+        Argon2Function cipher=Argon2Function.getInstance(memory, iterations, parallelism, 32, param, version);
+        transformedKey=cipher.hash(key, header.getKdfTransformSeed());
+
         return valid;
     }    
 
