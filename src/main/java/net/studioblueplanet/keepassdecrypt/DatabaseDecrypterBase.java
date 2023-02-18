@@ -18,6 +18,9 @@ import javax.crypto.spec.SecretKeySpec;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.password4j.Argon2Function;
+import com.password4j.types.Argon2;
+
 /**
  * The methods that are applicable for KDBX 3.x and 4.x
  * @author jorgen
@@ -161,7 +164,7 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
         int iterations  =(int)header.getKdfIterations();
         int parallelism =header.getKdfParallelism();
         int version     =header.getKdfVersion();
-        
+/*        
         Argon2Function.Argon2 param;
         if (argonType.equals("d"))
         {
@@ -179,7 +182,24 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
         // First try, password4j: does not work with rawnbyte arrays!!!
         Argon2Function cipher=Argon2Function.getInstance(memory, iterations, parallelism, 32, param, version);
         transformedKey=cipher.hash(key, header.getKdfTransformSeed());
+*/
+        Argon2 param;
+        if (argonType.equals("d"))
+        {
+            param=Argon2.D;
+        }
+        else if (argonType.equals("i"))
+        {
+            param=Argon2.I;
+        }
+        else
+        {
+            param=Argon2.ID;
+        }
 
+        // First try, password4j: does not work with rawnbyte arrays!!!
+        Argon2Function cipher=Argon2Function.getInstance(memory, iterations, parallelism, 32, param, version);
+        transformedKey=cipher.hash(key, header.getKdfTransformSeed()).getBytes();
         return valid;
     }    
 
