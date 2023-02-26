@@ -16,10 +16,10 @@ import org.apache.logging.log4j.Logger;
  */
 public class BruteForceTest
 {
-    private final static Logger LOGGER = LogManager.getLogger(BruteForceTest.class);
+    private final static Logger     LOGGER = LogManager.getLogger(BruteForceTest.class);
     
-    String passwordChars="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890";
-    KeepassDatabase database;
+    private String                  passwordChars="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890";
+    private final KeepassDatabase   database;
     
     /**
      * Constructor, pass the name of de Keepass file
@@ -55,6 +55,14 @@ public class BruteForceTest
     }
     
     /**
+     * Set the series of allowed characters as a string, like "abcdefgABCDEFG0123#$"
+     */
+    public void setPasswordChars(String passwordChars)
+    {
+        this.passwordChars=passwordChars;
+    }
+    
+    /**
      * Brute force method that recursively tries all passwords of given length.
      * @param prefix First part of the password, recursively add the rest.
      * @param chars Length of the passwords 
@@ -84,4 +92,5 @@ public class BruteForceTest
         }
         return found;
     }
+    
 }

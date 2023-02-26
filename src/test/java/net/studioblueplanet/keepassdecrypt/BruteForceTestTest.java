@@ -59,8 +59,16 @@ public class BruteForceTestTest
         boolean result = instance.execute(1);
         assertEquals(expResult, result);
         
+        // password found
+        instance = new BruteForceTest("src/test/resources/test.kdbx");
+        instance.setPasswordChars("taes");
+        expResult = true;
+        result = instance.execute(4);
+        assertEquals(expResult, result);
+        
         // password not found
         instance = new BruteForceTest("src/test/resources/test.kdbx");
+        instance.setPasswordChars("abestX");
         expResult = false;
         result = instance.execute(2);
         assertEquals(expResult, result);
@@ -82,6 +90,7 @@ public class BruteForceTestTest
         
         // password not found
         instance = new BruteForceTest("src/test/resources/test.kdbx");
+        instance.setPasswordChars("abestX");
         expResult = false;
         result = instance.execute(2);
         assertEquals(expResult, result);
