@@ -59,15 +59,59 @@ public class Main
     }
 
     /**
+     * Show usage
+     */
+    private static void showHelp()
+    {
+        LOGGER.info("USAGE: ");
+        LOGGER.info("Demo KDBX3.1 decryption                      : java -jar  KeypassDecrypt.jar test1");
+        LOGGER.info("Demo KDBX4 ChaCha20 + KDF AES/EBC  decryption: java -jar  KeypassDecrypt.jar test2");
+        LOGGER.info("Demo KDBX4 ChaCha20 + KDF ARGON2ID decryption: java -jar  KeypassDecrypt.jar test3");
+        LOGGER.info("Demo brute force                             : java -jar  KeypassDecrypt.jar test4");
+        LOGGER.info("Decrypt own file                             : java -jar  KeypassDecrypt.jar [filename.kdbx]\n\n");        
+    }
+    
+    /**
      * Main function
      * @param args Not used
      */
     public static void main(String[] args)
     {
-        // DATABASE DECRYPTION
-        demoDecryption("test_8charspassword.kdbx"   , "testtest", "DECRYPT KDBX 3.1");
-        demoDecryption("test_chacha.kdbx"           , "test"    , "DECRYPT KDBX 4.0 - main: Chacha20 key generation: AES EBC");
-        demoDecryption("test_chacha_argon2id.kdbx"  , "test"    , "DECRYPT KDBX 4.0 - main: Chacha20 key generation: ARGON2ID");
-        demoBruteForce();
+        if (args.length==1)
+        {
+            String command=args[0];
+            if (command.toLowerCase().equals("test1"))
+            {
+                demoDecryption("test_8charspassword.kdbx"   , "testtest", "DECRYPT KDBX 3.1");
+            }
+            else if (command.toLowerCase().equals("test2"))
+            {
+                demoDecryption("test_chacha.kdbx"           , "test"    , "DECRYPT KDBX 4.0 - main: Chacha20 key generation: AES EBC");
+            }
+            else if (command.toLowerCase().equals("test3"))
+            {
+                demoDecryption("test_chacha_argon2id.kdbx"  , "test"    , "DECRYPT KDBX 4.0 - main: Chacha20 key generation: ARGON2ID");
+            }
+            else if (command.toLowerCase().equals("test4"))
+            {
+                demoBruteForce();
+            }
+            else
+            {
+                showHelp();
+            }
+        }
+        else if (args.length==2)
+        {
+            String file     =args[0];
+            String password =args[1];
+            demoDecryption(file, password, "Decrypt own file");
+        }
+        else
+        {
+            showHelp();
+            LOGGER.info("Running demo:");
+            demoDecryption("test_chacha_argon2id.kdbx"  , "test"    , "DECRYPT KDBX 4.0 - main: Chacha20 key generation: ARGON2ID");
+        }
     }
 }
