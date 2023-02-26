@@ -158,8 +158,8 @@ public class DatabaseHeader
      */
     public DatabaseHeader(byte[] headerData)
     {
-        kdfCipher=Cipher.AESECB; // Default value for KDBX 3.x
-        this.filedata=headerData;
+        kdfCipher       =Cipher.AESECB; // Default value for KDBX 3.x
+        this.filedata   =headerData;
         parseData(false);
     }
 
@@ -177,6 +177,8 @@ public class DatabaseHeader
 
     /**
      * Processes the file data into sensible things
+     * @param processOnlyFields If true, the header only consists of fields, 
+     * not the signature and version, etc
      */
     private void parseData(boolean processOnlyFields)
     {
@@ -185,13 +187,15 @@ public class DatabaseHeader
         int     length;
         
         
-        LOGGER.info("Parsing data");
+        LOGGER.trace("Parsing header data, only fileds: {}", processOnlyFields);
         if (!processOnlyFields)
         {
             signature1          =(int)Toolbox.readInt(filedata, 0, 4);
             signature2          =(int)Toolbox.readInt(filedata, 4, 4);
             kdbxMinorVersion    =(int)Toolbox.readInt(filedata, 8, 2);
             kdbxMajorVersion    =(int)Toolbox.readInt(filedata,10, 2);
+            
+            LOGGER.debug("Version {}.{}", kdbxMajorVersion, kdbxMinorVersion);
 
             if (kdbxMajorVersion==0x0003)
             {
@@ -201,6 +205,7 @@ public class DatabaseHeader
             {
                 lengthSize=4;   // KDBX version 4.x
             }
+            LOGGER.debug("Header field length size: {}", lengthSize);
             index   =12;
         }
         else
@@ -231,6 +236,10 @@ public class DatabaseHeader
             if (!Toolbox.validateSha256Hash(header, hash))
             {
                 LOGGER.error("Header error: hash does not match!");
+            }
+            else
+            {
+                LOGGER.debug("Header SHA256 hash is valid");
             }
         }
         fullHeaderLength=index;

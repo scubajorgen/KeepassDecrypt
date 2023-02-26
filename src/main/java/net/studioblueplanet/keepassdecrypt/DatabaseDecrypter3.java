@@ -100,6 +100,7 @@ public class DatabaseDecrypter3 extends DatabaseDecrypterBase
                 valid=false;
             }
         }
+        LOGGER.debug("Decryption validated; valid: {}", valid);
         return valid;
     }
 
@@ -128,7 +129,7 @@ public class DatabaseDecrypter3 extends DatabaseDecrypterBase
             int size=(int)Toolbox.readInt(databaseBlocks, index, 4);
             index+=4;
             totalSize+=size;
-            LOGGER.info("ID: {}, size {}", id, size);
+            LOGGER.debug("Block ID: {}, size {}", id, size);
             index+=size;
         }
         
@@ -149,6 +150,7 @@ public class DatabaseDecrypter3 extends DatabaseDecrypterBase
             if (size>0)
             {
                 valid=Toolbox.validateSha256Hash(block, hash);
+                LOGGER.debug("Block {} valid: {}", id, valid);
                 System.arraycopy(block, 0, zippedDatabase, totalSize, size);
                 totalSize+=size;
                 index+=size;        

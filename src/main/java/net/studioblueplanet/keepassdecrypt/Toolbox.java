@@ -263,6 +263,7 @@ public class Toolbox
                 }
             }
             uncompressed = byteout.toByteArray();
+            LOGGER.debug("Decompression succeeded, compressed {}, uncompressed {} bytes", gzip.length, uncompressed.length);
         }
         catch(IOException e)
         {

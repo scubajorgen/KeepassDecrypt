@@ -92,5 +92,4 @@ public class BruteForceTest
         }
         return found;
     }
-    
 }

@@ -89,6 +89,7 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
         {
             LOGGER.error("Unsupported KDF cipher");
         }        
+        LOGGER.debug("KDF valid          : {}", valid);
         LOGGER.debug("Transformed Key    : {}", Toolbox.bytesToString(transformedKey));
 
         // Generate the master key
@@ -110,8 +111,8 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
      */
     private boolean transformAes(byte[] key)
     {
-        boolean valid;
-        valid=false;
+        LOGGER.trace("KDF transform: AES/ECB");
+        boolean valid=false;
         try
         {
             Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
@@ -119,7 +120,7 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
             cipher.init(Cipher.ENCRYPT_MODE, keySpec);
 
             transformedKey=key;
-            LOGGER.debug("Transformed Key    : {}", Toolbox.bytesToString(transformedKey));
+            LOGGER.debug("Transformed Key in : {}", Toolbox.bytesToString(transformedKey));
             for (int i=0; i<header.getKdfTransformRounds(); i++)
             {
                 transformedKey=cipher.doFinal(transformedKey);
@@ -158,31 +159,15 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
      */
     private boolean transformArgon(byte[] key, String argonType)
     {
+        LOGGER.trace("KDF transform: ARGON {}", argonType);
+
         boolean valid=true;
 
         int memory      =(int)(header.getKdfMemorySize()/1024L);
         int iterations  =(int)header.getKdfIterations();
         int parallelism =header.getKdfParallelism();
         int version     =header.getKdfVersion();
-/*        
-        Argon2Function.Argon2 param;
-        if (argonType.equals("d"))
-        {
-            param=Argon2Function.Argon2.D;
-        }
-        else if (argonType.equals("i"))
-        {
-            param=Argon2Function.Argon2.I;
-        }
-        else
-        {
-            param=Argon2Function.Argon2.ID;
-        }
 
-        // First try, password4j: does not work with rawnbyte arrays!!!
-        Argon2Function cipher=Argon2Function.getInstance(memory, iterations, parallelism, 32, param, version);
-        transformedKey=cipher.hash(key, header.getKdfTransformSeed());
-*/
         Argon2 param;
         if (argonType.equals("d"))
         {
@@ -235,8 +220,9 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
      */
     private boolean decryptPayloadAes(byte[] payload)
     {
-        boolean valid;
-        valid=false;
+        LOGGER.trace("Decrypt payload: AES/CBC");
+
+        boolean valid=false;
 
         if ((filePayload.length)%16>0)
         {
@@ -252,6 +238,7 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
             
             decryptedPayload    =cipher.doFinal(payload);
             valid               =true;
+            LOGGER.debug("Decryption AES/CBC succeeded");
         }
         catch (NoSuchAlgorithmException e)
         {
@@ -287,6 +274,7 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
      */
     private boolean decryptPayloadChaCha(byte[] payload)
     {
+        LOGGER.trace("Decrypt payload: CHACHA20");
         boolean valid=false;
         
         byte[] nonce=header.getEncryptionIv();
@@ -297,6 +285,7 @@ public abstract class DatabaseDecrypterBase implements DatabaseDecrypter
             decryptedPayload=new byte[payload.length];
             cipher.decrypt(decryptedPayload, payload, payload.length);
             valid           =true;
+            LOGGER.debug("Decryption CHACHA20 succeeded");
         }
         catch(ChaCha20.WrongKeySizeException e)
         {
