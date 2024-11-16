@@ -7,7 +7,7 @@
     </Appenders>
     <Loggers>
     	<!-- Root logger referring to console appender -->
-        <Root level="info" additivity="false">
+        <Root level="trace" additivity="false">
             <AppenderRef ref="stdout" />
         </Root>
     </Loggers>
